@@ -2,21 +2,33 @@ function parseMatchTitle(match){
 
  const name = match.match_name || "";
 
+ // detect match type
  const matchType =
  name.match(/\d+(st|nd|rd|th)\s(Test|ODI|T20I)/i);
 
- const type = matchType ? matchType[0] : "Match";
+ let type = matchType ? matchType[0] : "";
 
+ // detect teams
  const teams =
- name.match(/([A-Z]{2,4})\svs\s([A-Z]{2,4})/i);
+ name.match(/([A-Za-z]{2,})\s+vs\s+([A-Za-z]{2,})/i);
 
  if(teams){
 
-  return `${type} ${teams[1]} vs ${teams[2]}`;
+  const team1 = teams[1].toUpperCase();
+  const team2 = teams[2].toUpperCase();
 
+  if(type){
+   return `${type} ${team1} vs ${team2}`;
+  }
+
+  return `${team1} vs ${team2}`;
  }
 
- return type;
+ if(type){
+  return type;
+ }
+
+ return "Match";
 
 }
 
