@@ -1,7 +1,6 @@
 const axios = require("axios");
 
-const API_BASE =
-"https://cricbuzz.autoaiassistant.com/api.php?action=";
+const API_BASE = "https://cricbuzz.autoaiassistant.com/api.php?action=";
 
 async function fetchMatches(type){
 
@@ -13,11 +12,7 @@ async function fetchMatches(type){
    timeout: 10000
   });
 
-  if(!res.data){
-   return [];
-  }
-
-  return res.data;
+  return res.data || [];
 
  }catch(err){
 
