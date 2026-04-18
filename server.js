@@ -1,23 +1,48 @@
 const express = require("express");
+const axios = require("axios");
 const config = require("./config.json");
 
 const connectDB = require("./database/mongodb");
 const Subscriber = require("./models/subscriber");
-
-const { fetchMatches } = require("./services/cricketApi");
-const { parseMatchTitle } = require("./utils/parser");
 const { getSession } = require("./sessions/ussdSession");
 
 const app = express();
-
-// =========================
-// CONNECT DATABASE
-// =========================
 
 connectDB();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// =========================
+// FETCH MATCH DATA FROM NEW API
+// =========================
+
+async function fetchMatches(type) {
+
+ try {
+
+  const url = `https://cricbuzz.autoaiassistant.com/sms.php?message=${type}`;
+
+  const response = await axios.get(url, { timeout: 5000 });
+
+  const text = response.data || "No data available";
+
+  // Convert API text to match object
+  return [
+   {
+    match_name: type.toUpperCase() + " CRICKET",
+    result: text
+   }
+  ];
+
+ } catch (err) {
+
+  console.log("API Error:", err.message);
+  return [];
+
+ }
+
+}
 
 // =========================
 // FORMAT MATCH DETAILS
@@ -30,19 +55,6 @@ function formatMatchInfo(match) {
  const name = match.match_name || "Match";
 
  text += `${name}\n\n`;
-
- if (match.score && match.score.length) {
-
-  match.score.forEach(s => {
-
-   if (s.team_name && s.scores) {
-    text += `${s.team_name} ${s.scores[0] || ""}\n`;
-   }
-
-  });
-
-  text += "\n";
- }
 
  if (match.result) {
   text += `${match.result}\n\n`;
@@ -74,7 +86,7 @@ function showMatches(session) {
  let menu = `CON ${title}\n\n`;
 
  list.forEach((m, i) => {
-  menu += `${i + 1}. ${parseMatchTitle(m)}\n`;
+  menu += `${i + 1}. ${m.match_name}\n`;
  });
 
  if (end < session.matches.length) {
@@ -98,7 +110,6 @@ app.post("/ussd", async (req, res) => {
   const sessionId = req.body.sessionId || "demo";
   const text = req.body.text || "";
 
-  // FIX 1️⃣ split text
   const inputs = text.split("*");
   const lastInput = inputs[inputs.length - 1];
 
@@ -130,13 +141,9 @@ app.post("/ussd", async (req, res) => {
   // LIVE MATCHES
   else if (lastInput === "1" && session.menu === "main") {
 
-   try {
-    session.matches = await fetchMatches("live");
-   } catch {
-    return res.send("END Server maintenance.\nTry later");
-   }
+   session.matches = await fetchMatches("live");
 
-   if (!session.matches || session.matches.length === 0) {
+   if (!session.matches.length) {
     return res.send("END Server maintenance.\nTry later");
    }
 
@@ -148,16 +155,12 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  // UPCOMING
+  // UPCOMING MATCHES
   else if (lastInput === "2") {
 
-   try {
-    session.matches = await fetchMatches("upcoming");
-   } catch {
-    return res.send("END Server maintenance.\nTry later");
-   }
+   session.matches = await fetchMatches("upcoming");
 
-   if (!session.matches || session.matches.length === 0) {
+   if (!session.matches.length) {
     return res.send("END Server maintenance.\nTry later");
    }
 
@@ -169,16 +172,12 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  // RECENT
+  // RECENT MATCHES
   else if (lastInput === "3") {
 
-   try {
-    session.matches = await fetchMatches("recent");
-   } catch {
-    return res.send("END Server maintenance.\nTry later");
-   }
+   session.matches = await fetchMatches("recent");
 
-   if (!session.matches || session.matches.length === 0) {
+   if (!session.matches.length) {
     return res.send("END Server maintenance.\nTry later");
    }
 
@@ -274,8 +273,6 @@ app.post("/subscription", async (req, res) => {
     { upsert: true }
    );
 
-   console.log("New Subscriber:", msisdn);
-
   }
 
   if (status === "UNSUBSCRIBED") {
@@ -285,8 +282,6 @@ app.post("/subscription", async (req, res) => {
     { status: "inactive" }
    );
 
-   console.log("User Unsubscribed:", msisdn);
-
   }
 
   res.status(200).send("OK");
@@ -294,7 +289,6 @@ app.post("/subscription", async (req, res) => {
  } catch (err) {
 
   console.log("Subscription Error:", err.message);
-
   res.status(200).send("OK");
 
  }
