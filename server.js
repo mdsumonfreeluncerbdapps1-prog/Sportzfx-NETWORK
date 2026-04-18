@@ -1,112 +1,261 @@
-const axios = require("axios");
+const express = require("express");
+const config = require("./config.json");
 
-// NEW SMS API
-const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
+const connectDB = require("./database/mongodb");
+const Subscriber = require("./models/subscriber");
 
-// =========================
-// CACHE STORAGE
-// =========================
+const { fetchMatches } = require("./services/cricketApi");
+const { parseMatchTitle } = require("./utils/parser");
+const { getSession } = require("./sessions/ussdSession");
 
-let cache = {
- live: null,
- upcoming: null,
- recent: null
-};
+const app = express();
 
-let lastFetch = {
- live: 0,
- upcoming: 0,
- recent: 0
-};
-
-// cache duration (30 seconds)
-const CACHE_TIME = 30000;
-
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // =========================
-// PARSE TEXT RESPONSE
+// SAFE STARTUP
 // =========================
 
-function parseMatches(text){
+process.on("uncaughtException", err => {
+ console.error("Uncaught Exception:", err);
+});
 
- if(!text) return [];
+process.on("unhandledRejection", err => {
+ console.error("Unhandled Rejection:", err);
+});
 
- const lines = text.split("\n");
+console.log("Starting server...");
 
- let matches = [];
+// =========================
+// CONNECT DATABASE
+// =========================
 
- lines.forEach(line => {
+try {
+ connectDB();
+} catch (err) {
+ console.error("MongoDB Startup Error:", err.message);
+}
 
-  line = line.trim();
 
-  if(!line) return;
+// =========================
+// FORMAT MATCH DETAILS
+// =========================
 
-  // remove numbering like "1. "
-  line = line.replace(/^\d+\.\s*/, "");
+function formatMatchInfo(match) {
 
-  if(line.includes("vs")){
+ let text = "CON Match Information\n\n";
 
-   matches.push({
-    match_name: line,
-    score: [],
-    result: ""
-   });
+ const name = match.match_name || "Match";
 
-  }
+ text += `${name}\n\n`;
 
- });
+ if (match.score && match.score.length) {
 
- return matches;
+  match.score.forEach(s => {
+
+   if (s.team_name && s.scores) {
+    text += `${s.team_name} ${s.scores[0] || ""}\n`;
+   }
+
+  });
+
+  text += "\n";
+ }
+
+ if (match.result) {
+  text += `${match.result}\n\n`;
+ }
+
+ text += "1 Refresh\n0 Back";
+
+ return text;
 
 }
 
 
 // =========================
-// FETCH MATCHES
+// SHOW MATCH LIST
 // =========================
 
-async function fetchMatches(type){
+function showMatches(session) {
 
- try{
+ const start = session.page * 5;
+ const end = start + 5;
 
-  const now = Date.now();
+ const list = (session.matches || []).slice(start, end);
 
-  // return cached data
-  if(cache[type] && (now - lastFetch[type]) < CACHE_TIME){
-   return cache[type];
+ let title = "Matches";
+
+ if (session.type === "live") title = "Live Matches";
+ if (session.type === "upcoming") title = "Upcoming Matches";
+ if (session.type === "recent") title = "Recent Matches";
+
+ let menu = `CON ${title}\n\n`;
+
+ list.forEach((m, i) => {
+  menu += `${i + 1}. ${parseMatchTitle(m)}\n`;
+ });
+
+ if (end < (session.matches || []).length) {
+  menu += `\n9 More Matches`;
+ }
+
+ menu += `\n0 Back`;
+
+ return menu;
+
+}
+
+
+// =========================
+// USSD LISTENER
+// =========================
+
+app.post("/ussd", async (req, res) => {
+
+ try {
+
+  const sessionId = req.body.sessionId || "demo";
+  const text = req.body.text || "";
+
+  const inputs = text.split("*");
+  const lastInput = inputs[inputs.length - 1];
+
+  const session = getSession(sessionId);
+
+  let response = "";
+
+  if (text === "") {
+
+   session.menu = "main";
+   session.page = 0;
+
+   response =
+    "CON Sportzfx NK\n\n" +
+    "1 Live Matches\n" +
+    "2 Upcoming Matches\n" +
+    "3 Recent Matches";
+
   }
 
-  const url = `${API_BASE}${type}`;
+  else if (lastInput === "1" && session.menu === "main") {
 
-  const res = await axios.get(url,{
-   timeout:3000
-  });
+   session.matches = await fetchMatches("live");
 
-  const text = res.data || "";
+   session.type = "live";
+   session.page = 0;
+   session.menu = "matches";
 
-  const matches = parseMatches(text);
+   response = showMatches(session);
 
-  // save cache
-  cache[type] = matches;
-  lastFetch[type] = now;
-
-  return matches;
-
- }catch(err){
-
-  console.log("Cricket API Error:",err.message);
-
-  // fallback to cache
-  if(cache[type]){
-   return cache[type];
   }
 
-  return [];
+  else if (lastInput === "2" && session.menu === "main") {
+
+   session.matches = await fetchMatches("upcoming");
+
+   session.type = "upcoming";
+   session.page = 0;
+   session.menu = "matches";
+
+   response = showMatches(session);
+
+  }
+
+  else if (lastInput === "3" && session.menu === "main") {
+
+   session.matches = await fetchMatches("recent");
+
+   session.type = "recent";
+   session.page = 0;
+   session.menu = "matches";
+
+   response = showMatches(session);
+
+  }
+
+  else if (lastInput === "9" && session.menu === "matches") {
+
+   session.page++;
+
+   response = showMatches(session);
+
+  }
+
+  else if (session.menu === "matches" && lastInput !== "0") {
+
+   const index = session.page * 5 + (parseInt(lastInput) - 1);
+
+   if (session.matches && session.matches[index]) {
+
+    const match = session.matches[index];
+
+    session.selectedMatch = match;
+    session.menu = "score";
+
+    response = formatMatchInfo(match);
+
+   } else {
+
+    response = "END Invalid option";
+
+   }
+
+  }
+
+  else if (lastInput === "0") {
+
+   session.menu = "main";
+   session.page = 0;
+
+   response =
+    "CON Sportzfx NK\n\n" +
+    "1 Live Matches\n" +
+    "2 Upcoming Matches\n" +
+    "3 Recent Matches";
+
+  }
+
+  else {
+
+   response = "END Invalid option";
+
+  }
+
+  res.set("Content-Type", "text/plain");
+  res.send(response);
+
+ } catch (err) {
+
+  console.log("USSD Error:", err.message);
+
+  res.send("END Service temporarily unavailable");
 
  }
 
-}
+});
 
-module.exports = {
- fetchMatches
-};
+
+// =========================
+// HEALTH CHECK
+// =========================
+
+app.get("/", (req, res) => {
+
+ res.send("Sportzfx Network Running");
+
+});
+
+
+// =========================
+// SERVER START
+// =========================
+
+const PORT = process.env.PORT || config.server.port || 10000;
+
+app.listen(PORT, () => {
+
+ console.log("Server running on", PORT);
+
+});
