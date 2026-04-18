@@ -16,92 +16,109 @@ app.use(express.urlencoded({ extended: true }));
 
 app.post("/ussd", async (req, res) => {
 
- const { sessionId, text } = req.body;
+ try{
 
- const session = getSession(sessionId);
+  const sessionId = req.body.sessionId || "demo";
+  const text = req.body.text || "";
 
- let response = "";
+  const session = getSession(sessionId);
 
- // MAIN MENU
- if (text === "") {
+  let response = "";
 
-  session.menu = "main";
+  // ================= MAIN MENU =================
 
-  response =
-   "CON Sportzfx NK\n\n" +
-   "1 Live Matches\n" +
-   "2 Upcoming Matches\n" +
-   "3 Recent Matches";
+  if (text === "") {
+
+   session.menu = "main";
+
+   response =
+    "CON Sportzfx NK\n\n" +
+    "1 Live Matches\n" +
+    "2 Upcoming Matches\n" +
+    "3 Recent Matches";
+
+  }
+
+  // ================= LIVE MATCHES =================
+
+  else if (text === "1") {
+
+   const matches = await fetchMatches("live");
+
+   let menu = "CON Live Matches\n\n";
+
+   matches.slice(0,5).forEach((m,i)=>{
+
+    menu += `${i+1}. ${parseMatchTitle(m)}\n`;
+
+   });
+
+   menu += "\n0 Back";
+
+   response = menu;
+
+  }
+
+  // ================= UPCOMING =================
+
+  else if (text === "2") {
+
+   const matches = await fetchMatches("upcoming");
+
+   let menu = "CON Upcoming Matches\n\n";
+
+   matches.slice(0,5).forEach((m,i)=>{
+
+    menu += `${i+1}. ${parseMatchTitle(m)}\n`;
+
+   });
+
+   menu += "\n0 Back";
+
+   response = menu;
+
+  }
+
+  // ================= RECENT =================
+
+  else if (text === "3") {
+
+   const matches = await fetchMatches("recent");
+
+   let menu = "CON Recent Matches\n\n";
+
+   matches.slice(0,5).forEach((m,i)=>{
+
+    menu += `${i+1}. ${parseMatchTitle(m)}\n`;
+
+   });
+
+   menu += "\n0 Back";
+
+   response = menu;
+
+  }
+
+  else {
+
+   response = "END Invalid option";
+
+  }
+
+  res.send(response);
+
+ }catch(err){
+
+  console.log("USSD Error:",err.message);
+
+  res.send("END Service temporarily unavailable");
 
  }
-
- // LIVE MATCHES
- else if (text === "1") {
-
-  const matches = await fetchMatches("live");
-
-  let menu = "CON Live Matches\n\n";
-
-  matches.slice(0,5).forEach((m,i)=>{
-
-   menu += `${i+1} ${parseMatchTitle(m)}\n`;
-
-  });
-
-  menu += "\n0 Back";
-
-  response = menu;
-
- }
-
- // UPCOMING
- else if (text === "2") {
-
-  const matches = await fetchMatches("upcoming");
-
-  let menu = "CON Upcoming Matches\n\n";
-
-  matches.slice(0,5).forEach((m,i)=>{
-
-   menu += `${i+1} ${parseMatchTitle(m)}\n`;
-
-  });
-
-  menu += "\n0 Back";
-
-  response = menu;
-
- }
-
- // RECENT
- else if (text === "3") {
-
-  const matches = await fetchMatches("recent");
-
-  let menu = "CON Recent Matches\n\n";
-
-  matches.slice(0,5).forEach((m,i)=>{
-
-   menu += `${i+1} ${parseMatchTitle(m)}\n`;
-
-  });
-
-  menu += "\n0 Back";
-
-  response = menu;
-
- }
-
- else {
-
-  response = "END Invalid option";
-
- }
-
- res.send(response);
 
 });
 
+// =========================
+// HEALTH CHECK
 // =========================
 
 app.get("/", (req,res)=>{
@@ -109,8 +126,10 @@ app.get("/", (req,res)=>{
 });
 
 // =========================
+// SERVER START
+// =========================
 
-const PORT = process.env.PORT || config.server.port;
+const PORT = process.env.PORT || config.server.port || 10000;
 
 app.listen(PORT, ()=>{
 
