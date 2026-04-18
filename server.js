@@ -1,126 +1,112 @@
-const express = require("express");
 const axios = require("axios");
 
-const app = express();
+// NEW SMS API
+const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// =========================
+// CACHE STORAGE
+// =========================
 
-const PORT = process.env.PORT || 10000;
+let cache = {
+ live: null,
+ upcoming: null,
+ recent: null
+};
+
+let lastFetch = {
+ live: 0,
+ upcoming: 0,
+ recent: 0
+};
+
+// cache duration (30 seconds)
+const CACHE_TIME = 30000;
 
 
 // =========================
-// API CALL
+// PARSE TEXT RESPONSE
 // =========================
 
-async function getMatches(type){
+function parseMatches(text){
 
- try{
+ if(!text) return [];
 
-  const url = `https://cricbuzz.autoaiassistant.com/sms.php?message=${type}`;
+ const lines = text.split("\n");
 
-  const res = await axios.get(url,{ timeout:4000 });
+ let matches = [];
 
-  const text = typeof res.data === "string"
-   ? res.data
-   : "";
+ lines.forEach(line => {
 
-  return text;
+  line = line.trim();
 
- }catch(err){
+  if(!line) return;
 
-  console.log("API Error:",err.message);
+  // remove numbering like "1. "
+  line = line.replace(/^\d+\.\s*/, "");
 
-  return "Server maintenance.\nTry later";
+  if(line.includes("vs")){
 
- }
+   matches.push({
+    match_name: line,
+    score: [],
+    result: ""
+   });
+
+  }
+
+ });
+
+ return matches;
 
 }
 
 
 // =========================
-// USSD ENDPOINT
+// FETCH MATCHES
 // =========================
 
-app.post("/ussd", async (req,res)=>{
+async function fetchMatches(type){
 
- const text = req.body.text || "";
+ try{
 
- let response = "";
+  const now = Date.now();
 
- if(text === ""){
+  // return cached data
+  if(cache[type] && (now - lastFetch[type]) < CACHE_TIME){
+   return cache[type];
+  }
 
-  response =
-  "CON Sportzfx Cricket\n\n"+
-  "1 Live Matches\n"+
-  "2 Upcoming Matches\n"+
-  "3 Recent Matches";
+  const url = `${API_BASE}${type}`;
 
- }
+  const res = await axios.get(url,{
+   timeout:3000
+  });
 
- else if(text === "1"){
+  const text = res.data || "";
 
-  const data = await getMatches("live");
+  const matches = parseMatches(text);
 
-  response = `CON LIVE MATCHES\n\n${data}\n\n0 Back`;
+  // save cache
+  cache[type] = matches;
+  lastFetch[type] = now;
 
- }
+  return matches;
 
- else if(text === "2"){
+ }catch(err){
 
-  const data = await getMatches("upcoming");
+  console.log("Cricket API Error:",err.message);
 
-  response = `CON UPCOMING MATCHES\n\n${data}\n\n0 Back`;
+  // fallback to cache
+  if(cache[type]){
+   return cache[type];
+  }
 
- }
-
- else if(text === "3"){
-
-  const data = await getMatches("recent");
-
-  response = `CON RECENT MATCHES\n\n${data}\n\n0 Back`;
-
- }
-
- else if(text === "0"){
-
-  response =
-  "CON Sportzfx Cricket\n\n"+
-  "1 Live Matches\n"+
-  "2 Upcoming Matches\n"+
-  "3 Recent Matches";
+  return [];
 
  }
 
- else{
+}
 
-  response = "END Invalid option";
-
- }
-
- res.set("Content-Type","text/plain");
- res.send(response);
-
-});
-
-
-// =========================
-// HEALTH CHECK
-// =========================
-
-app.get("/",(req,res)=>{
-
- res.send("Sportzfx Network Running");
-
-});
-
-
-// =========================
-// START SERVER
-// =========================
-
-app.listen(PORT,()=>{
-
- console.log("Server running on",PORT);
-
-});
+module.exports = {
+ fetchMatches
+};
