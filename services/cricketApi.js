@@ -1,16 +1,15 @@
 const axios = require("axios");
 
-// NEW SMS API
 const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
 
 // =========================
-// CACHE STORAGE
+// CACHE
 // =========================
 
 let cache = {
- live: null,
- upcoming: null,
- recent: null
+ live: [],
+ upcoming: [],
+ recent: []
 };
 
 let lastFetch = {
@@ -19,44 +18,51 @@ let lastFetch = {
  recent: 0
 };
 
-// cache duration (30 seconds)
 const CACHE_TIME = 30000;
 
 
 // =========================
-// PARSE TEXT RESPONSE
+// PARSE API TEXT
 // =========================
 
 function parseMatches(text){
 
- if(!text) return [];
+ try{
 
- const lines = text.split("\n");
+  if(!text || typeof text !== "string"){
+   return [];
+  }
 
- let matches = [];
+  const lines = text.split("\n");
 
- lines.forEach(line => {
+  const matches = [];
 
-  line = line.trim();
+  for(const line of lines){
 
-  if(!line) return;
+   const clean = line.trim();
 
-  // remove numbering like "1. "
-  line = line.replace(/^\d+\.\s*/, "");
+   if(!clean) continue;
 
-  if(line.includes("vs")){
+   if(clean.includes("vs")){
 
-   matches.push({
-    match_name: line,
-    score: [],
-    result: ""
-   });
+    matches.push({
+     match_name: clean,
+     score: [],
+     result: ""
+    });
+
+   }
 
   }
 
- });
+  return matches;
 
- return matches;
+ }catch(err){
+
+  console.log("Parse error:",err.message);
+  return [];
+
+ }
 
 }
 
@@ -71,22 +77,18 @@ async function fetchMatches(type){
 
   const now = Date.now();
 
-  // return cached data
-  if(cache[type] && (now - lastFetch[type]) < CACHE_TIME){
+  if(cache[type] && now - lastFetch[type] < CACHE_TIME){
    return cache[type];
   }
 
   const url = `${API_BASE}${type}`;
 
-  const res = await axios.get(url,{
-   timeout:3000
-  });
+  const res = await axios.get(url,{ timeout:4000 });
 
-  const text = res.data || "";
+  const text = res.data;
 
   const matches = parseMatches(text);
 
-  // save cache
   cache[type] = matches;
   lastFetch[type] = now;
 
@@ -96,7 +98,6 @@ async function fetchMatches(type){
 
   console.log("Cricket API Error:",err.message);
 
-  // fallback to cache
   if(cache[type]){
    return cache[type];
   }
