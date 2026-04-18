@@ -4,7 +4,8 @@ const subscriberSchema = new mongoose.Schema({
 
  msisdn:{
   type:String,
-  unique:true
+  unique:true,
+  required:true
  },
 
  status:{
