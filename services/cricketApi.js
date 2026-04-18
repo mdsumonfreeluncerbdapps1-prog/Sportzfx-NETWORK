@@ -2,19 +2,27 @@ const axios = require("axios");
 
 const API_BASE = "https://cricbuzz.autoaiassistant.com/api.php?action=";
 
-async function fetchMatches(type){
+async function fetchMatches(type) {
 
- try{
+ try {
 
   const url = `${API_BASE}${type}&type=all`;
 
   const res = await axios.get(url, {
-   timeout: 10000
+   timeout: 3000
   });
 
-  return res.data || [];
+  if (!res || !res.data) {
+   return [];
+  }
 
- }catch(err){
+  if (!Array.isArray(res.data)) {
+   return [];
+  }
+
+  return res.data;
+
+ } catch (err) {
 
   console.log("Cricket API Error:", err.message);
 
