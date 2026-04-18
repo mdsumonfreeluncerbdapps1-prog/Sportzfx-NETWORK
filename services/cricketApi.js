@@ -2,22 +2,16 @@ const axios = require("axios");
 
 const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
 
-let cache = {
- live: [],
- upcoming: [],
- recent: []
-};
-
-let lastFetch = {
- live: 0,
- upcoming: 0,
- recent: 0
-};
+const cache = {};
+const lastFetch = {};
 
 const CACHE_TIME = 30000;
 
 
-// parse API text safely
+// =========================
+// PARSE API TEXT
+// =========================
+
 function parseMatches(text){
 
  if(!text || typeof text !== "string"){
@@ -32,7 +26,7 @@ function parseMatches(text){
 
   const clean = line.trim();
 
-  if(clean.includes("vs")){
+  if(clean && clean.includes("vs")){
    matches.push({
     match_name: clean,
     score: [],
@@ -47,9 +41,17 @@ function parseMatches(text){
 }
 
 
+// =========================
+// FETCH MATCHES
+// =========================
+
 async function fetchMatches(type){
 
  try{
+
+  if(!type){
+   return [];
+  }
 
   const now = Date.now();
 
@@ -59,9 +61,15 @@ async function fetchMatches(type){
 
   const url = `${API_BASE}${type}`;
 
-  const res = await axios.get(url,{ timeout:4000 });
+  const res = await axios.get(url,{
+   timeout:4000
+  });
 
-  const matches = parseMatches(res.data);
+  const text = typeof res.data === "string"
+   ? res.data
+   : JSON.stringify(res.data);
+
+  const matches = parseMatches(text);
 
   cache[type] = matches;
   lastFetch[type] = now;
