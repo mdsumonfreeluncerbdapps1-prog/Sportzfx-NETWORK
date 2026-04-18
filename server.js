@@ -73,10 +73,6 @@ app.post("/ussd", async (req,res)=>{
 
   let response = "";
 
-  // =========================
-  // MAIN MENU
-  // =========================
-
   if(text === ""){
 
    if(!user || user.status !== "active"){
@@ -102,9 +98,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // =========================
-  // SUBSCRIBE FLOW
-  // =========================
 
   if(text === "1" && (!user || user.status !== "active")){
 
@@ -119,6 +112,7 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
   if(text === "1*1" && (!user || user.status !== "active")){
 
    return res.send(
@@ -127,15 +121,13 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
   if(text === "1*2"){
 
    return res.send("END Subscription cancelled");
 
   }
 
-  // =========================
-  // BLOCK NON SUBSCRIBER
-  // =========================
 
   if(!user || user.status !== "active"){
 
@@ -145,9 +137,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // =========================
-  // LIVE MATCHES
-  // =========================
 
   if(lastInput === "1"){
 
@@ -159,9 +148,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // =========================
-  // UPCOMING MATCHES
-  // =========================
 
   else if(lastInput === "2"){
 
@@ -173,9 +159,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // =========================
-  // RECENT MATCHES
-  // =========================
 
   else if(lastInput === "3"){
 
@@ -187,9 +170,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // =========================
-  // UNSUBSCRIBE
-  // =========================
 
   else if(lastInput === "4"){
 
@@ -225,7 +205,7 @@ app.post("/subscription", async (req,res)=>{
 
  try{
 
-  const { msisdn, status } = req.body;
+  let { msisdn, status } = req.body;
 
   console.log("Subscription Event:", req.body);
 
@@ -233,16 +213,29 @@ app.post("/subscription", async (req,res)=>{
    return res.send("OK");
   }
 
+  // Normalize number (016 → 88016)
+  if(msisdn.startsWith("0")){
+   msisdn = "88" + msisdn;
+  }
+
+  // Allow only Robi & Airtel
+  const allowedPrefixes = ["88016","88018"];
+
+  if(!allowedPrefixes.some(p => msisdn.startsWith(p))){
+   console.log("Operator not supported:", msisdn);
+   return res.send("OK");
+  }
+
   if(status === "SUBSCRIBED"){
 
    await Subscriber.findOneAndUpdate(
-    { msisdn: msisdn },
+    { msisdn },
     {
-     msisdn: msisdn,
-     status: "active",
-     subscribeDate: new Date()
+     msisdn,
+     status:"active",
+     subscribeDate:new Date()
     },
-    { upsert: true }
+    { upsert:true }
    );
 
    console.log("User subscribed:", msisdn);
@@ -252,8 +245,8 @@ app.post("/subscription", async (req,res)=>{
   if(status === "UNSUBSCRIBED"){
 
    await Subscriber.updateOne(
-    { msisdn: msisdn },
-    { status: "inactive" }
+    { msisdn },
+    { status:"inactive" }
    );
 
    console.log("User unsubscribed:", msisdn);
