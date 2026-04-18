@@ -227,40 +227,36 @@ app.post("/subscription", async (req,res)=>{
 
   const { msisdn, status } = req.body;
 
-  console.log("Subscription Event:",req.body);
+  console.log("Subscription Event:", req.body);
 
   if(!msisdn){
-   return res.send("OK");
-  }
-
-  // Only Robi & Airtel
-  const allowedPrefixes = ["88016","88018"];
-
-  if(!allowedPrefixes.some(p => msisdn.startsWith(p))){
-   console.log("Operator not supported:",msisdn);
    return res.send("OK");
   }
 
   if(status === "SUBSCRIBED"){
 
    await Subscriber.findOneAndUpdate(
-    { msisdn },
+    { msisdn: msisdn },
     {
-     msisdn,
-     status:"active",
-     subscribeDate:new Date()
+     msisdn: msisdn,
+     status: "active",
+     subscribeDate: new Date()
     },
-    { upsert:true }
+    { upsert: true }
    );
+
+   console.log("User subscribed:", msisdn);
 
   }
 
   if(status === "UNSUBSCRIBED"){
 
    await Subscriber.updateOne(
-    { msisdn },
-    { status:"inactive" }
+    { msisdn: msisdn },
+    { status: "inactive" }
    );
+
+   console.log("User unsubscribed:", msisdn);
 
   }
 
@@ -269,7 +265,7 @@ app.post("/subscription", async (req,res)=>{
  }
  catch(err){
 
-  console.log("Subscription Error:",err.message);
+  console.log("Subscription Error:", err.message);
   res.send("OK");
 
  }
