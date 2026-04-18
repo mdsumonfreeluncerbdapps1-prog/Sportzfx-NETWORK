@@ -1,112 +1,126 @@
+const express = require("express");
 const axios = require("axios");
 
-// NEW SMS API
-const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
+const app = express();
 
-// =========================
-// CACHE STORAGE
-// =========================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-let cache = {
- live: null,
- upcoming: null,
- recent: null
-};
-
-let lastFetch = {
- live: 0,
- upcoming: 0,
- recent: 0
-};
-
-// cache duration (30 seconds)
-const CACHE_TIME = 30000;
+const PORT = process.env.PORT || 10000;
 
 
 // =========================
-// PARSE TEXT RESPONSE
+// API CALL
 // =========================
 
-function parseMatches(text){
-
- if(!text) return [];
-
- const lines = text.split("\n");
-
- let matches = [];
-
- lines.forEach(line => {
-
-  line = line.trim();
-
-  if(!line) return;
-
-  // remove numbering like "1. "
-  line = line.replace(/^\d+\.\s*/, "");
-
-  if(line.includes("vs")){
-
-   matches.push({
-    match_name: line,
-    score: [],
-    result: ""
-   });
-
-  }
-
- });
-
- return matches;
-
-}
-
-
-// =========================
-// FETCH MATCHES
-// =========================
-
-async function fetchMatches(type){
+async function getMatches(type){
 
  try{
 
-  const now = Date.now();
+  const url = `https://cricbuzz.autoaiassistant.com/sms.php?message=${type}`;
 
-  // return cached data
-  if(cache[type] && (now - lastFetch[type]) < CACHE_TIME){
-   return cache[type];
-  }
+  const res = await axios.get(url,{ timeout:4000 });
 
-  const url = `${API_BASE}${type}`;
+  const text = typeof res.data === "string"
+   ? res.data
+   : "";
 
-  const res = await axios.get(url,{
-   timeout:3000
-  });
-
-  const text = res.data || "";
-
-  const matches = parseMatches(text);
-
-  // save cache
-  cache[type] = matches;
-  lastFetch[type] = now;
-
-  return matches;
+  return text;
 
  }catch(err){
 
-  console.log("Cricket API Error:",err.message);
+  console.log("API Error:",err.message);
 
-  // fallback to cache
-  if(cache[type]){
-   return cache[type];
-  }
-
-  return [];
+  return "Server maintenance.\nTry later";
 
  }
 
 }
 
-module.exports = {
- fetchMatches
-};
+
+// =========================
+// USSD ENDPOINT
+// =========================
+
+app.post("/ussd", async (req,res)=>{
+
+ const text = req.body.text || "";
+
+ let response = "";
+
+ if(text === ""){
+
+  response =
+  "CON Sportzfx Cricket\n\n"+
+  "1 Live Matches\n"+
+  "2 Upcoming Matches\n"+
+  "3 Recent Matches";
+
+ }
+
+ else if(text === "1"){
+
+  const data = await getMatches("live");
+
+  response = `CON LIVE MATCHES\n\n${data}\n\n0 Back`;
+
+ }
+
+ else if(text === "2"){
+
+  const data = await getMatches("upcoming");
+
+  response = `CON UPCOMING MATCHES\n\n${data}\n\n0 Back`;
+
+ }
+
+ else if(text === "3"){
+
+  const data = await getMatches("recent");
+
+  response = `CON RECENT MATCHES\n\n${data}\n\n0 Back`;
+
+ }
+
+ else if(text === "0"){
+
+  response =
+  "CON Sportzfx Cricket\n\n"+
+  "1 Live Matches\n"+
+  "2 Upcoming Matches\n"+
+  "3 Recent Matches";
+
+ }
+
+ else{
+
+  response = "END Invalid option";
+
+ }
+
+ res.set("Content-Type","text/plain");
+ res.send(response);
+
+});
+
+
+// =========================
+// HEALTH CHECK
+// =========================
+
+app.get("/",(req,res)=>{
+
+ res.send("Sportzfx Network Running");
+
+});
+
+
+// =========================
+// START SERVER
+// =========================
+
+app.listen(PORT,()=>{
+
+ console.log("Server running on",PORT);
+
+});
