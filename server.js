@@ -67,10 +67,6 @@ app.post("/ussd", async (req,res)=>{
 
   let response = "";
 
-  // =========================
-  // FIRST MENU
-  // =========================
-
   if(text === ""){
 
    if(!user || user.status !== "active"){
@@ -95,11 +91,6 @@ app.post("/ussd", async (req,res)=>{
    return res.send(response);
 
   }
-
-
-  // =========================
-  // SUBSCRIBE CONFIRM
-  // =========================
 
   if(text === "1" && (!user || user.status !== "active")){
 
@@ -128,11 +119,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  // =========================
-  // BLOCK SERVICE IF NOT SUBSCRIBED
-  // =========================
-
   if(!user || user.status !== "active"){
 
    return res.send(
@@ -141,15 +127,9 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  // =========================
-  // LIVE MATCHES
-  // =========================
-
   if(lastInput === "1"){
 
    session.matches = await fetchMatches("live");
-
    session.page = 0;
    session.menu = "matches";
 
@@ -160,7 +140,6 @@ app.post("/ussd", async (req,res)=>{
   else if(lastInput === "2"){
 
    session.matches = await fetchMatches("upcoming");
-
    session.page = 0;
    session.menu = "matches";
 
@@ -171,17 +150,12 @@ app.post("/ussd", async (req,res)=>{
   else if(lastInput === "3"){
 
    session.matches = await fetchMatches("recent");
-
    session.page = 0;
    session.menu = "matches";
 
    response = showMatches(session);
 
   }
-
-  // =========================
-  // UNSUBSCRIBE
-  // =========================
 
   else if(lastInput === "4"){
 
@@ -203,7 +177,6 @@ app.post("/ussd", async (req,res)=>{
  catch(err){
 
   console.log("USSD Error:",err.message);
-
   res.send("END Service temporarily unavailable");
 
  }
@@ -222,6 +195,14 @@ app.post("/subscription", async (req,res)=>{
   const { msisdn, status } = req.body;
 
   console.log("Subscription Event:",req.body);
+
+  // 🔹 Only Robi & Airtel numbers allowed
+  const allowedPrefixes = ["88016","88018"];
+
+  if(!allowedPrefixes.some(prefix => msisdn.startsWith(prefix))){
+   console.log("Operator not supported:",msisdn);
+   return res.send("OK");
+  }
 
   if(status === "SUBSCRIBED"){
 
