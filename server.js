@@ -98,10 +98,15 @@ app.post("/ussd", async (req, res) => {
   const sessionId = req.body.sessionId || "demo";
   const text = req.body.text || "";
 
+  // FIX 1️⃣ split text
+  const inputs = text.split("*");
+  const lastInput = inputs[inputs.length - 1];
+
   const session = getSession(sessionId);
 
   let response = "";
 
+  // MAIN MENU
   if (text === "") {
 
    session.menu = "main";
@@ -115,13 +120,15 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  else if (text === "1" && session.menu === "score") {
+  // REFRESH
+  else if (lastInput === "1" && session.menu === "score") {
 
    response = formatMatchInfo(session.selectedMatch);
 
   }
 
-  else if (text === "1") {
+  // LIVE MATCHES
+  else if (lastInput === "1" && session.menu === "main") {
 
    try {
     session.matches = await fetchMatches("live");
@@ -141,7 +148,8 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  else if (text === "2") {
+  // UPCOMING
+  else if (lastInput === "2") {
 
    try {
     session.matches = await fetchMatches("upcoming");
@@ -161,7 +169,8 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  else if (text === "3") {
+  // RECENT
+  else if (lastInput === "3") {
 
    try {
     session.matches = await fetchMatches("recent");
@@ -181,7 +190,8 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  else if (text === "9" && session.menu === "matches") {
+  // MORE MATCHES
+  else if (lastInput === "9" && session.menu === "matches") {
 
    session.page++;
 
@@ -189,9 +199,10 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  else if (session.menu === "matches" && text !== "0") {
+  // MATCH DETAILS
+  else if (session.menu === "matches" && lastInput !== "0") {
 
-   const index = session.page * 5 + (parseInt(text) - 1);
+   const index = session.page * 5 + (parseInt(lastInput) - 1);
 
    if (session.matches[index]) {
 
@@ -210,7 +221,8 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  else if (text === "0") {
+  // BACK
+  else if (lastInput === "0") {
 
    session.menu = "main";
    session.page = 0;
