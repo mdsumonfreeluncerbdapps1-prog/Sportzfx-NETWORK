@@ -2,10 +2,6 @@ const axios = require("axios");
 
 const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
 
-// =========================
-// CACHE
-// =========================
-
 let cache = {
  live: [],
  upcoming: [],
@@ -21,55 +17,35 @@ let lastFetch = {
 const CACHE_TIME = 30000;
 
 
-// =========================
-// PARSE API TEXT
-// =========================
-
+// parse API text safely
 function parseMatches(text){
 
- try{
-
-  if(!text || typeof text !== "string"){
-   return [];
-  }
-
-  const lines = text.split("\n");
-
-  const matches = [];
-
-  for(const line of lines){
-
-   const clean = line.trim();
-
-   if(!clean) continue;
-
-   if(clean.includes("vs")){
-
-    matches.push({
-     match_name: clean,
-     score: [],
-     result: ""
-    });
-
-   }
-
-  }
-
-  return matches;
-
- }catch(err){
-
-  console.log("Parse error:",err.message);
+ if(!text || typeof text !== "string"){
   return [];
+ }
+
+ const lines = text.split("\n");
+
+ const matches = [];
+
+ for(const line of lines){
+
+  const clean = line.trim();
+
+  if(clean.includes("vs")){
+   matches.push({
+    match_name: clean,
+    score: [],
+    result: ""
+   });
+  }
 
  }
 
+ return matches;
+
 }
 
-
-// =========================
-// FETCH MATCHES
-// =========================
 
 async function fetchMatches(type){
 
@@ -85,9 +61,7 @@ async function fetchMatches(type){
 
   const res = await axios.get(url,{ timeout:4000 });
 
-  const text = res.data;
-
-  const matches = parseMatches(text);
+  const matches = parseMatches(res.data);
 
   cache[type] = matches;
   lastFetch[type] = now;
@@ -98,11 +72,7 @@ async function fetchMatches(type){
 
   console.log("Cricket API Error:",err.message);
 
-  if(cache[type]){
-   return cache[type];
-  }
-
-  return [];
+  return cache[type] || [];
 
  }
 
