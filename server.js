@@ -31,6 +31,10 @@ function showMatches(session){
 
  let menu = `CON Cricket Matches\n\n`;
 
+ if(list.length === 0){
+  return "END No matches available";
+ }
+
  list.forEach((m,i)=>{
   menu += `${i+1}. ${parseMatchTitle(m)}\n`;
  });
@@ -54,6 +58,8 @@ app.post("/ussd", async (req,res)=>{
 
  try{
 
+  res.set("Content-Type","text/plain");
+
   const sessionId = req.body.sessionId;
   const phone = req.body.phoneNumber || req.body.msisdn;
   const text = req.body.text || "";
@@ -66,6 +72,10 @@ app.post("/ussd", async (req,res)=>{
   const user = await Subscriber.findOne({ msisdn: phone });
 
   let response = "";
+
+  // =========================
+  // MAIN MENU
+  // =========================
 
   if(text === ""){
 
@@ -91,6 +101,10 @@ app.post("/ussd", async (req,res)=>{
    return res.send(response);
 
   }
+
+  // =========================
+  // SUBSCRIBE FLOW
+  // =========================
 
   if(text === "1" && (!user || user.status !== "active")){
 
@@ -119,6 +133,10 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+  // =========================
+  // BLOCK NON SUBSCRIBER
+  // =========================
+
   if(!user || user.status !== "active"){
 
    return res.send(
@@ -126,6 +144,10 @@ app.post("/ussd", async (req,res)=>{
    );
 
   }
+
+  // =========================
+  // LIVE MATCHES
+  // =========================
 
   if(lastInput === "1"){
 
@@ -137,6 +159,10 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+  // =========================
+  // UPCOMING MATCHES
+  // =========================
+
   else if(lastInput === "2"){
 
    session.matches = await fetchMatches("upcoming");
@@ -147,6 +173,10 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+  // =========================
+  // RECENT MATCHES
+  // =========================
+
   else if(lastInput === "3"){
 
    session.matches = await fetchMatches("recent");
@@ -156,6 +186,10 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
+
+  // =========================
+  // UNSUBSCRIBE
+  // =========================
 
   else if(lastInput === "4"){
 
@@ -170,7 +204,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  res.set("Content-Type","text/plain");
   res.send(response);
 
  }
@@ -185,7 +218,7 @@ app.post("/ussd", async (req,res)=>{
 
 
 // =========================
-// SUBSCRIPTION NOTIFICATION
+// SUBSCRIPTION CALLBACK
 // =========================
 
 app.post("/subscription", async (req,res)=>{
@@ -196,19 +229,27 @@ app.post("/subscription", async (req,res)=>{
 
   console.log("Subscription Event:",req.body);
 
-  // 🔹 Only Robi & Airtel numbers allowed
+  if(!msisdn){
+   return res.send("OK");
+  }
+
+  // Only Robi & Airtel
   const allowedPrefixes = ["88016","88018"];
 
-  if(!allowedPrefixes.some(prefix => msisdn.startsWith(prefix))){
+  if(!allowedPrefixes.some(p => msisdn.startsWith(p))){
    console.log("Operator not supported:",msisdn);
    return res.send("OK");
   }
 
   if(status === "SUBSCRIBED"){
 
-   await Subscriber.updateOne(
+   await Subscriber.findOneAndUpdate(
     { msisdn },
-    { msisdn, status:"active" },
+    {
+     msisdn,
+     status:"active",
+     subscribeDate:new Date()
+    },
     { upsert:true }
    );
 
