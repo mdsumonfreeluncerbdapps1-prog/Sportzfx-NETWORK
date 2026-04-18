@@ -13,18 +13,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// =========================
-// SAFE STARTUP
-// =========================
-
-process.on("uncaughtException", err => {
- console.error("Uncaught Exception:", err);
-});
-
-process.on("unhandledRejection", err => {
- console.error("Unhandled Rejection:", err);
-});
-
 console.log("Starting server...");
 
 // =========================
@@ -35,7 +23,7 @@ connectDB();
 
 
 // =========================
-// FORMAT MATCH DETAILS
+// MATCH DETAILS
 // =========================
 
 function formatMatchInfo(match){
@@ -63,7 +51,7 @@ function formatMatchInfo(match){
   text += `${match.result}\n\n`;
  }
 
- text += "1 Refresh\n0 Back";
+ text += "0 Back";
 
  return text;
 
@@ -71,7 +59,7 @@ function formatMatchInfo(match){
 
 
 // =========================
-// SHOW MATCH LIST
+// MATCH LIST
 // =========================
 
 function showMatches(session){
@@ -81,20 +69,14 @@ function showMatches(session){
 
  const list = (session.matches || []).slice(start,end);
 
- let title = "Matches";
-
- if(session.type === "live") title = "Live Matches";
- if(session.type === "upcoming") title = "Upcoming Matches";
- if(session.type === "recent") title = "Recent Matches";
-
- let menu = `CON ${title}\n\n`;
+ let menu = `CON Cricket Matches\n\n`;
 
  list.forEach((m,i)=>{
   menu += `${i+1}. ${parseMatchTitle(m)}\n`;
  });
 
  if(end < (session.matches || []).length){
-  menu += `\n9 More Matches`;
+  menu += `\n9 More`;
  }
 
  menu += `\n0 Back`;
@@ -112,53 +94,69 @@ app.post("/ussd", async (req,res)=>{
 
  try{
 
-  const sessionId = req.body.sessionId || "demo";
-  const msisdn = req.body.msisdn || "";
+  const sessionId = req.body.sessionId;
+  const phone = req.body.phoneNumber || req.body.msisdn;
   const text = req.body.text || "";
+
+  const session = getSession(sessionId);
 
   const inputs = text.split("*");
   const lastInput = inputs[inputs.length - 1];
 
-  const session = getSession(sessionId);
-
   let response = "";
+
+  // =========================
+  // FIRST MENU
+  // =========================
+
+  if(text === ""){
+
+   response =
+   "CON Sportzfx Cricket\n\n"+
+   "1 Subscribe\n"+
+   "2 Live Matches\n"+
+   "3 Upcoming Matches\n"+
+   "4 Recent Matches";
+
+  }
+
+  // =========================
+  // SUBSCRIBE OPTION
+  // =========================
+
+  else if(lastInput === "1"){
+
+   response =
+   "END To subscribe dial *15755# and confirm.\nDaily charge Tk 2.67";
+
+  }
 
   // =========================
   // CHECK SUBSCRIBER
   // =========================
 
-  const user = await Subscriber.findOne({ msisdn });
+  const user = await Subscriber.findOne({ msisdn: phone });
 
   if(!user || user.status !== "active"){
 
-   return res.send(
-    "END Please subscribe first\nDaily charge Tk 2.67"
-   );
+   if(text !== "" && lastInput !== "1"){
+
+    return res.send(
+     "END Please subscribe first\nDaily charge Tk 2.67"
+    );
+
+   }
 
   }
 
   // =========================
-  // MAIN MENU
+  // LIVE MATCHES
   // =========================
 
-  if(text === ""){
-
-   session.menu = "main";
-   session.page = 0;
-
-   response =
-   "CON Sportzfx NK\n\n"+
-   "1 Live Matches\n"+
-   "2 Upcoming Matches\n"+
-   "3 Recent Matches";
-
-  }
-
-  else if(lastInput === "1" && session.menu === "main"){
+  if(lastInput === "2"){
 
    session.matches = await fetchMatches("live");
 
-   session.type = "live";
    session.page = 0;
    session.menu = "matches";
 
@@ -166,11 +164,10 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  else if(lastInput === "2" && session.menu === "main"){
+  else if(lastInput === "3"){
 
    session.matches = await fetchMatches("upcoming");
 
-   session.type = "upcoming";
    session.page = 0;
    session.menu = "matches";
 
@@ -178,64 +175,14 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  else if(lastInput === "3" && session.menu === "main"){
+  else if(lastInput === "4"){
 
    session.matches = await fetchMatches("recent");
 
-   session.type = "recent";
    session.page = 0;
    session.menu = "matches";
 
    response = showMatches(session);
-
-  }
-
-  else if(lastInput === "9" && session.menu === "matches"){
-
-   session.page++;
-
-   response = showMatches(session);
-
-  }
-
-  else if(session.menu === "matches" && lastInput !== "0"){
-
-   const index = session.page * 5 + (parseInt(lastInput) - 1);
-
-   if(session.matches && session.matches[index]){
-
-    const match = session.matches[index];
-
-    session.selectedMatch = match;
-    session.menu = "score";
-
-    response = formatMatchInfo(match);
-
-   }
-   else{
-
-    response = "END Invalid option";
-
-   }
-
-  }
-
-  else if(lastInput === "0"){
-
-   session.menu = "main";
-   session.page = 0;
-
-   response =
-   "CON Sportzfx NK\n\n"+
-   "1 Live Matches\n"+
-   "2 Upcoming Matches\n"+
-   "3 Recent Matches";
-
-  }
-
-  else{
-
-   response = "END Invalid option";
 
   }
 
@@ -285,13 +232,13 @@ app.post("/subscription", async (req,res)=>{
 
   }
 
-  res.status(200).send("OK");
+  res.send("OK");
 
  }
  catch(err){
 
   console.log("Subscription Error:",err.message);
-  res.status(200).send("OK");
+  res.send("OK");
 
  }
 
