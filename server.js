@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 // FORMAT MATCH DETAILS
 // =========================
 
-function formatMatchInfo(match){
+function formatMatchInfo(match) {
 
  let text = "CON Match Information\n\n";
 
@@ -22,19 +22,20 @@ function formatMatchInfo(match){
 
  text += `${name}\n\n`;
 
- if(match.score && match.score.length){
+ if (match.score && match.score.length) {
 
-  match.score.forEach(s=>{
-   if(s.team_name && s.scores){
+  match.score.forEach(s => {
+
+   if (s.team_name && s.scores) {
     text += `${s.team_name} ${s.scores[0] || ""}\n`;
    }
+
   });
 
   text += "\n";
-
  }
 
- if(match.result){
+ if (match.result) {
   text += `${match.result}\n\n`;
  }
 
@@ -48,26 +49,26 @@ function formatMatchInfo(match){
 // SHOW MATCH LIST
 // =========================
 
-function showMatches(session){
+function showMatches(session) {
 
  const start = session.page * 5;
  const end = start + 5;
 
- const list = session.matches.slice(start,end);
+ const list = session.matches.slice(start, end);
 
  let title = "Matches";
 
- if(session.type === "live") title = "Live Matches";
- if(session.type === "upcoming") title = "Upcoming Matches";
- if(session.type === "recent") title = "Recent Matches";
+ if (session.type === "live") title = "Live Matches";
+ if (session.type === "upcoming") title = "Upcoming Matches";
+ if (session.type === "recent") title = "Recent Matches";
 
  let menu = `CON ${title}\n\n`;
 
- list.forEach((m,i)=>{
-  menu += `${i+1}. ${parseMatchTitle(m)}\n`;
+ list.forEach((m, i) => {
+  menu += `${i + 1}. ${parseMatchTitle(m)}\n`;
  });
 
- if(end < session.matches.length){
+ if (end < session.matches.length) {
   menu += `\n9 More Matches`;
  }
 
@@ -81,9 +82,9 @@ function showMatches(session){
 // USSD LISTENER
 // =========================
 
-app.post("/ussd", async (req,res)=>{
+app.post("/ussd", async (req, res) => {
 
- try{
+ try {
 
   const sessionId = req.body.sessionId || "demo";
   const text = req.body.text || "";
@@ -92,24 +93,50 @@ app.post("/ussd", async (req,res)=>{
 
   let response = "";
 
-  if(text === ""){
+  // =========================
+  // MAIN MENU
+  // =========================
+
+  if (text === "") {
 
    session.menu = "main";
    session.page = 0;
 
    response =
-   "CON Sportzfx NK\n\n" +
-   "1 Live Matches\n" +
-   "2 Upcoming Matches\n" +
-   "3 Recent Matches";
+    "CON Sportzfx NK\n\n" +
+    "1 Live Matches\n" +
+    "2 Upcoming Matches\n" +
+    "3 Recent Matches";
 
   }
 
-  else if(text === "1"){
+  // =========================
+  // SCORE MENU REFRESH FIX
+  // =========================
 
-   session.matches = await fetchMatches("live");
+  else if (text === "1" && session.menu === "score") {
 
-   if(!session.matches || session.matches.length === 0){
+   response = formatMatchInfo(session.selectedMatch);
+
+  }
+
+  // =========================
+  // LIVE MATCHES
+  // =========================
+
+  else if (text === "1") {
+
+   try {
+
+    session.matches = await fetchMatches("live");
+
+   } catch (e) {
+
+    return res.send("END Server maintenance.\nTry later");
+
+   }
+
+   if (!session.matches || session.matches.length === 0) {
     return res.send("END Server maintenance.\nTry later");
    }
 
@@ -121,11 +148,23 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  else if(text === "2"){
+  // =========================
+  // UPCOMING MATCHES
+  // =========================
 
-   session.matches = await fetchMatches("upcoming");
+  else if (text === "2") {
 
-   if(!session.matches || session.matches.length === 0){
+   try {
+
+    session.matches = await fetchMatches("upcoming");
+
+   } catch (e) {
+
+    return res.send("END Server maintenance.\nTry later");
+
+   }
+
+   if (!session.matches || session.matches.length === 0) {
     return res.send("END Server maintenance.\nTry later");
    }
 
@@ -137,11 +176,23 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  else if(text === "3"){
+  // =========================
+  // RECENT MATCHES
+  // =========================
 
-   session.matches = await fetchMatches("recent");
+  else if (text === "3") {
 
-   if(!session.matches || session.matches.length === 0){
+   try {
+
+    session.matches = await fetchMatches("recent");
+
+   } catch (e) {
+
+    return res.send("END Server maintenance.\nTry later");
+
+   }
+
+   if (!session.matches || session.matches.length === 0) {
     return res.send("END Server maintenance.\nTry later");
    }
 
@@ -153,7 +204,11 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  else if(text === "9" && session.menu === "matches"){
+  // =========================
+  // PAGINATION
+  // =========================
+
+  else if (text === "9" && session.menu === "matches") {
 
    session.page++;
 
@@ -161,11 +216,15 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  else if(session.menu === "matches" && text !== "0"){
+  // =========================
+  // MATCH DETAILS
+  // =========================
+
+  else if (session.menu === "matches" && text !== "0") {
 
    const index = session.page * 5 + (parseInt(text) - 1);
 
-   if(session.matches[index]){
+   if (session.matches[index]) {
 
     const match = session.matches[index];
 
@@ -174,7 +233,7 @@ app.post("/ussd", async (req,res)=>{
 
     response = formatMatchInfo(match);
 
-   }else{
+   } else {
 
     response = "END Invalid option";
 
@@ -182,36 +241,35 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  else if(text === "1" && session.menu === "score"){
+  // =========================
+  // BACK
+  // =========================
 
-   response = formatMatchInfo(session.selectedMatch);
-
-  }
-
-  else if(text === "0"){
+  else if (text === "0") {
 
    session.menu = "main";
+   session.page = 0;
 
    response =
-   "CON Sportzfx NK\n\n" +
-   "1 Live Matches\n" +
-   "2 Upcoming Matches\n" +
-   "3 Recent Matches";
+    "CON Sportzfx NK\n\n" +
+    "1 Live Matches\n" +
+    "2 Upcoming Matches\n" +
+    "3 Recent Matches";
 
   }
 
-  else{
+  else {
 
    response = "END Invalid option";
 
   }
 
-  res.set("Content-Type","text/plain");
+  res.set("Content-Type", "text/plain");
   res.send(response);
 
- }catch(err){
+ } catch (err) {
 
-  console.log("USSD Error:",err.message);
+  console.log("USSD Error:", err.message);
 
   res.send("END Service temporarily unavailable");
 
@@ -223,23 +281,24 @@ app.post("/ussd", async (req,res)=>{
 // SUBSCRIPTION NOTIFICATION
 // =========================
 
-app.post("/subscription",(req,res)=>{
+app.post("/subscription", (req, res) => {
 
- try{
+ try {
 
-  console.log("Subscription Event:",req.body);
+  console.log("Subscription Event:", req.body);
 
   const msisdn = req.body.msisdn;
   const status = req.body.status;
 
-  console.log("User:",msisdn);
-  console.log("Subscription Status:",status);
+  console.log("User:", msisdn);
+  console.log("Subscription Status:", status);
 
   res.status(200).send("OK");
 
- }catch(err){
+ } catch (err) {
 
-  console.log("Subscription Error:",err.message);
+  console.log("Subscription Error:", err.message);
+
   res.status(200).send("OK");
 
  }
@@ -250,8 +309,10 @@ app.post("/subscription",(req,res)=>{
 // HEALTH CHECK
 // =========================
 
-app.get("/",(req,res)=>{
+app.get("/", (req, res) => {
+
  res.send("Sportzfx Network Running");
+
 });
 
 // =========================
@@ -260,18 +321,24 @@ app.get("/",(req,res)=>{
 
 const PORT = process.env.PORT || config.server.port || 10000;
 
-app.listen(PORT,()=>{
- console.log("Server running on",PORT);
+app.listen(PORT, () => {
+
+ console.log("Server running on", PORT);
+
 });
 
 // =========================
 // CRASH PROTECTION
 // =========================
 
-process.on("uncaughtException",err=>{
- console.error("Uncaught Exception:",err);
+process.on("uncaughtException", err => {
+
+ console.error("Uncaught Exception:", err);
+
 });
 
-process.on("unhandledRejection",err=>{
- console.error("Unhandled Rejection:",err);
+process.on("unhandledRejection", err => {
+
+ console.error("Unhandled Rejection:", err);
+
 });
