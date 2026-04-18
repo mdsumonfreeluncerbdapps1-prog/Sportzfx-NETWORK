@@ -15,10 +15,6 @@ app.use(express.urlencoded({ extended: true }));
 
 console.log("Starting server...");
 
-// =========================
-// CONNECT DATABASE
-// =========================
-
 connectDB();
 
 
@@ -116,20 +112,46 @@ app.post("/ussd", async (req,res)=>{
    "1 Subscribe\n"+
    "2 Live Matches\n"+
    "3 Upcoming Matches\n"+
-   "4 Recent Matches";
+   "4 Recent Matches\n"+
+   "0 Exit";
+
+   return res.send(response);
 
   }
 
   // =========================
-  // SUBSCRIBE OPTION
+  // SUBSCRIBE CONFIRM
   // =========================
 
-  else if(lastInput === "1"){
+  if(text === "1"){
 
    response =
-   "END To subscribe dial *15755# and confirm.\nDaily charge Tk 2.67";
+   "CON Confirm Subscription\n\n"+
+   "Sportzfx Cricket Service\n"+
+   "Daily charge Tk 2.67\n\n"+
+   "1 Confirm\n"+
+   "2 Cancel";
+
+   return res.send(response);
 
   }
+
+  if(text === "1*1"){
+
+   response =
+   "END Subscription request sent.\n"+
+   "You will receive confirmation SMS shortly.";
+
+   return res.send(response);
+
+  }
+
+  if(text === "1*2"){
+
+   return res.send("END Subscription cancelled");
+
+  }
+
 
   // =========================
   // CHECK SUBSCRIBER
@@ -139,15 +161,12 @@ app.post("/ussd", async (req,res)=>{
 
   if(!user || user.status !== "active"){
 
-   if(text !== "" && lastInput !== "1"){
-
-    return res.send(
-     "END Please subscribe first\nDaily charge Tk 2.67"
-    );
-
-   }
+   return res.send(
+    "END Please subscribe first\nDaily charge Tk 2.67\nDial *213*15755#"
+   );
 
   }
+
 
   // =========================
   // LIVE MATCHES
