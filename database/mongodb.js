@@ -6,16 +6,24 @@ async function connectDB() {
 
  try {
 
-  await mongoose.connect(MONGO_URI);
+  await mongoose.connect(MONGO_URI, {
+   useNewUrlParser: true,
+   useUnifiedTopology: true
+  });
 
   console.log("MongoDB Connected");
 
  } catch (err) {
 
-  console.error("MongoDB Error:", err.message);
+  console.error("MongoDB Connection Error:", err.message);
 
  }
 
 }
+
+// prevent mongoose crash
+mongoose.connection.on("error", err => {
+ console.error("MongoDB Runtime Error:", err);
+});
 
 module.exports = connectDB;
