@@ -92,8 +92,6 @@ app.post("/ussd", async (req,res)=>{
 
   let response = "";
 
-  // ================= MAIN MENU =================
-
   if(text === ""){
 
    session.menu = "main";
@@ -106,8 +104,6 @@ app.post("/ussd", async (req,res)=>{
    "3 Recent Matches";
 
   }
-
-  // ================= LIVE =================
 
   else if(text === "1"){
 
@@ -125,8 +121,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // ================= UPCOMING =================
-
   else if(text === "2"){
 
    session.matches = await fetchMatches("upcoming");
@@ -142,8 +136,6 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
-
-  // ================= RECENT =================
 
   else if(text === "3"){
 
@@ -161,8 +153,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // ================= PAGINATION =================
-
   else if(text === "9" && session.menu === "matches"){
 
    session.page++;
@@ -170,8 +160,6 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
-
-  // ================= MATCH SELECT =================
 
   else if(session.menu === "matches" && text !== "0"){
 
@@ -194,15 +182,11 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  // ================= REFRESH =================
-
   else if(text === "1" && session.menu === "score"){
 
    response = formatMatchInfo(session.selectedMatch);
 
   }
-
-  // ================= BACK =================
 
   else if(text === "0"){
 
@@ -222,6 +206,7 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+  res.set("Content-Type","text/plain");
   res.send(response);
 
  }catch(err){
@@ -229,6 +214,33 @@ app.post("/ussd", async (req,res)=>{
   console.log("USSD Error:",err.message);
 
   res.send("END Service temporarily unavailable");
+
+ }
+
+});
+
+// =========================
+// SUBSCRIPTION NOTIFICATION
+// =========================
+
+app.post("/subscription",(req,res)=>{
+
+ try{
+
+  console.log("Subscription Event:",req.body);
+
+  const msisdn = req.body.msisdn;
+  const status = req.body.status;
+
+  console.log("User:",msisdn);
+  console.log("Subscription Status:",status);
+
+  res.status(200).send("OK");
+
+ }catch(err){
+
+  console.log("Subscription Error:",err.message);
+  res.status(200).send("OK");
 
  }
 
