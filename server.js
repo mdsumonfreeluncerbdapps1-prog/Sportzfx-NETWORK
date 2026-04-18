@@ -1,11 +1,20 @@
 const express = require("express");
 const config = require("./config.json");
 
+const connectDB = require("./database/mongodb");
+const Subscriber = require("./models/subscriber");
+
 const { fetchMatches } = require("./services/cricketApi");
 const { parseMatchTitle } = require("./utils/parser");
 const { getSession } = require("./sessions/ussdSession");
 
 const app = express();
+
+// =========================
+// CONNECT DATABASE
+// =========================
+
+connectDB();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -93,10 +102,6 @@ app.post("/ussd", async (req, res) => {
 
   let response = "";
 
-  // =========================
-  // MAIN MENU
-  // =========================
-
   if (text === "") {
 
    session.menu = "main";
@@ -110,30 +115,18 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  // =========================
-  // SCORE MENU REFRESH FIX
-  // =========================
-
   else if (text === "1" && session.menu === "score") {
 
    response = formatMatchInfo(session.selectedMatch);
 
   }
 
-  // =========================
-  // LIVE MATCHES
-  // =========================
-
   else if (text === "1") {
 
    try {
-
     session.matches = await fetchMatches("live");
-
-   } catch (e) {
-
+   } catch {
     return res.send("END Server maintenance.\nTry later");
-
    }
 
    if (!session.matches || session.matches.length === 0) {
@@ -148,20 +141,12 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  // =========================
-  // UPCOMING MATCHES
-  // =========================
-
   else if (text === "2") {
 
    try {
-
     session.matches = await fetchMatches("upcoming");
-
-   } catch (e) {
-
+   } catch {
     return res.send("END Server maintenance.\nTry later");
-
    }
 
    if (!session.matches || session.matches.length === 0) {
@@ -176,20 +161,12 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  // =========================
-  // RECENT MATCHES
-  // =========================
-
   else if (text === "3") {
 
    try {
-
     session.matches = await fetchMatches("recent");
-
-   } catch (e) {
-
+   } catch {
     return res.send("END Server maintenance.\nTry later");
-
    }
 
    if (!session.matches || session.matches.length === 0) {
@@ -204,10 +181,6 @@ app.post("/ussd", async (req, res) => {
 
   }
 
-  // =========================
-  // PAGINATION
-  // =========================
-
   else if (text === "9" && session.menu === "matches") {
 
    session.page++;
@@ -215,10 +188,6 @@ app.post("/ussd", async (req, res) => {
    response = showMatches(session);
 
   }
-
-  // =========================
-  // MATCH DETAILS
-  // =========================
 
   else if (session.menu === "matches" && text !== "0") {
 
@@ -240,10 +209,6 @@ app.post("/ussd", async (req, res) => {
    }
 
   }
-
-  // =========================
-  // BACK
-  // =========================
 
   else if (text === "0") {
 
@@ -281,17 +246,36 @@ app.post("/ussd", async (req, res) => {
 // SUBSCRIPTION NOTIFICATION
 // =========================
 
-app.post("/subscription", (req, res) => {
+app.post("/subscription", async (req, res) => {
 
  try {
 
+  const { msisdn, status } = req.body;
+
   console.log("Subscription Event:", req.body);
 
-  const msisdn = req.body.msisdn;
-  const status = req.body.status;
+  if (status === "SUBSCRIBED") {
 
-  console.log("User:", msisdn);
-  console.log("Subscription Status:", status);
+   await Subscriber.updateOne(
+    { msisdn },
+    { msisdn, status: "active" },
+    { upsert: true }
+   );
+
+   console.log("New Subscriber:", msisdn);
+
+  }
+
+  if (status === "UNSUBSCRIBED") {
+
+   await Subscriber.updateOne(
+    { msisdn },
+    { status: "inactive" }
+   );
+
+   console.log("User Unsubscribed:", msisdn);
+
+  }
 
   res.status(200).send("OK");
 
@@ -302,6 +286,22 @@ app.post("/subscription", (req, res) => {
   res.status(200).send("OK");
 
  }
+
+});
+
+// =========================
+// SUBSCRIBER COUNT API
+// =========================
+
+app.get("/subscribers", async (req, res) => {
+
+ const total = await Subscriber.countDocuments({
+  status: "active"
+ });
+
+ res.json({
+  activeSubscribers: total
+ });
 
 });
 
@@ -332,13 +332,9 @@ app.listen(PORT, () => {
 // =========================
 
 process.on("uncaughtException", err => {
-
  console.error("Uncaught Exception:", err);
-
 });
 
 process.on("unhandledRejection", err => {
-
  console.error("Unhandled Rejection:", err);
-
 });
