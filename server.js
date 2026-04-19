@@ -69,6 +69,14 @@ app.post("/ussd", async (req,res)=>{
   const phone = req.body.phoneNumber || req.body.msisdn;
   const text = req.body.text || "";
 
+  // ===== DEBUG LOG =====
+  console.log("========== USSD REQUEST ==========");
+  console.log("Session ID:", sessionId);
+  console.log("Phone:", phone);
+  console.log("Text:", text);
+  console.log("Body:", req.body);
+  console.log("==================================");
+
   const session = getSession(sessionId);
 
   const inputs = text.split("*");
@@ -120,6 +128,8 @@ app.post("/ussd", async (req,res)=>{
 
   if(text === "1*1" && (!user || user.status !== "active")){
 
+   console.log("Subscription request triggered for:", phone);
+
    return res.send(
     "END Subscription request sent.\nYou will receive confirmation SMS shortly."
    );
@@ -142,6 +152,8 @@ app.post("/ussd", async (req,res)=>{
   // LIVE MATCHES
   if(lastInput === "1"){
 
+   console.log("Fetching LIVE matches");
+
    session.matches = await fetchMatches("live");
    session.page = 0;
    session.menu = "matches";
@@ -153,6 +165,8 @@ app.post("/ussd", async (req,res)=>{
 
   // UPCOMING MATCHES
   else if(lastInput === "2"){
+
+   console.log("Fetching UPCOMING matches");
 
    session.matches = await fetchMatches("upcoming");
    session.page = 0;
@@ -166,6 +180,8 @@ app.post("/ussd", async (req,res)=>{
   // RECENT MATCHES
   else if(lastInput === "3"){
 
+   console.log("Fetching RECENT matches");
+
    session.matches = await fetchMatches("recent");
    session.page = 0;
    session.menu = "matches";
@@ -177,6 +193,8 @@ app.post("/ussd", async (req,res)=>{
 
   // UNSUBSCRIBE
   else if(lastInput === "4"){
+
+   console.log("Unsubscribe request:", phone);
 
    await Subscriber.updateOne(
     { msisdn: phone },
@@ -191,6 +209,8 @@ app.post("/ussd", async (req,res)=>{
 
   // MORE MATCHES
   else if(lastInput === "9" && session.menu === "matches"){
+
+   console.log("Next page matches");
 
    session.page += 1;
    response = showMatches(session);
@@ -258,6 +278,8 @@ app.post("/subscription", async (req,res)=>{
 
   if(status === "SUBSCRIBED"){
 
+   console.log("User subscribed:", msisdn);
+
    await Subscriber.findOneAndUpdate(
     { msisdn },
     {
@@ -271,6 +293,8 @@ app.post("/subscription", async (req,res)=>{
   }
 
   if(status === "UNSUBSCRIBED"){
+
+   console.log("User unsubscribed:", msisdn);
 
    await Subscriber.updateOne(
     { msisdn },
