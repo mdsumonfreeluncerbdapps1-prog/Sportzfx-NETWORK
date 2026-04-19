@@ -29,18 +29,23 @@ function showMatches(session){
 
  const list = (session.matches || []).slice(start,end);
 
- let menu = `CON Cricket Matches\n\n`;
+ let menu = `CON ${session.title}\n\n`;
 
  if(list.length === 0){
-  return "END No matches available";
+  return (
+   "CON No Matches Available\n\n"+
+   "Please try again later.\n"+
+   "0 Back"
+  );
  }
 
  list.forEach((m,i)=>{
-  menu += `${i+1}. ${parseMatchTitle(m)}\n`;
+  const number = start + i + 1;
+  menu += `${number}. ${parseMatchTitle(m)}\n`;
  });
 
  if(end < (session.matches || []).length){
-  menu += `\n9 More`;
+  menu += `\n9 More Matches`;
  }
 
  menu += `\n0 Back`;
@@ -73,6 +78,7 @@ app.post("/ussd", async (req,res)=>{
 
   let response = "";
 
+  // MAIN MENU
   if(text === ""){
 
    if(!user || user.status !== "active"){
@@ -98,7 +104,7 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
+  // SUBSCRIBE FLOW
   if(text === "1" && (!user || user.status !== "active")){
 
    response =
@@ -112,7 +118,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
   if(text === "1*1" && (!user || user.status !== "active")){
 
    return res.send(
@@ -121,14 +126,11 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
   if(text === "1*2"){
-
    return res.send("END Subscription cancelled");
-
   }
 
-
+  // BLOCK NON SUBSCRIBER
   if(!user || user.status !== "active"){
 
    return res.send(
@@ -137,40 +139,43 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
+  // LIVE MATCHES
   if(lastInput === "1"){
 
    session.matches = await fetchMatches("live");
    session.page = 0;
    session.menu = "matches";
+   session.title = "Live Matches";
 
    response = showMatches(session);
 
   }
 
-
+  // UPCOMING MATCHES
   else if(lastInput === "2"){
 
    session.matches = await fetchMatches("upcoming");
    session.page = 0;
    session.menu = "matches";
+   session.title = "Upcoming Matches";
 
    response = showMatches(session);
 
   }
 
-
+  // RECENT MATCHES
   else if(lastInput === "3"){
 
    session.matches = await fetchMatches("recent");
    session.page = 0;
    session.menu = "matches";
+   session.title = "Recent Matches";
 
    response = showMatches(session);
 
   }
 
-
+  // UNSUBSCRIBE
   else if(lastInput === "4"){
 
    await Subscriber.updateOne(
@@ -184,13 +189,40 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+  // MORE MATCHES
+  else if(lastInput === "9" && session.menu === "matches"){
+
+   session.page += 1;
+   response = showMatches(session);
+
+  }
+
+  // BACK
+  else if(lastInput === "0"){
+
+   return res.send(
+    "CON Sportzfx Cricket\n\n"+
+    "1 Live Matches\n"+
+    "2 Upcoming Matches\n"+
+    "3 Recent Matches\n"+
+    "4 Unsubscribe\n"+
+    "0 Exit"
+   );
+
+  }
+
   res.send(response);
 
  }
  catch(err){
 
   console.log("USSD Error:",err.message);
-  res.send("END Service temporarily unavailable");
+
+  res.send(
+   "CON Service temporarily unavailable\n"+
+   "Please try again later.\n\n"+
+   "0 Back"
+  );
 
  }
 
@@ -213,12 +245,10 @@ app.post("/subscription", async (req,res)=>{
    return res.send("OK");
   }
 
-  // Normalize number (016 → 88016)
   if(msisdn.startsWith("0")){
    msisdn = "88" + msisdn;
   }
 
-  // Allow only Robi & Airtel
   const allowedPrefixes = ["88016","88018"];
 
   if(!allowedPrefixes.some(p => msisdn.startsWith(p))){
@@ -238,8 +268,6 @@ app.post("/subscription", async (req,res)=>{
     { upsert:true }
    );
 
-   console.log("User subscribed:", msisdn);
-
   }
 
   if(status === "UNSUBSCRIBED"){
@@ -248,8 +276,6 @@ app.post("/subscription", async (req,res)=>{
     { msisdn },
     { status:"inactive" }
    );
-
-   console.log("User unsubscribed:", msisdn);
 
   }
 
