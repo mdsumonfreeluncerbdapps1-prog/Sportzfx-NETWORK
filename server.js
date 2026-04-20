@@ -85,10 +85,6 @@ app.post("/ussd", async (req,res)=>{
   let response = "";
 
 
-  // ======================
-  // MAIN MENU
-  // ======================
-
   if(text === ""){
 
    if(!user || user.status !== "active"){
@@ -112,10 +108,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  // ======================
-  // SUBSCRIBE FLOW
-  // ======================
 
   if(text === "1" && (!user || user.status !== "active")){
 
@@ -144,10 +136,6 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // ======================
-  // BLOCK NON SUBSCRIBER
-  // ======================
-
   if(!user || user.status !== "active"){
 
    return res.send(
@@ -156,10 +144,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  // ======================
-  // LIVE MATCHES
-  // ======================
 
   if(lastInput === "1"){
 
@@ -172,11 +156,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  // ======================
-  // UPCOMING MATCHES
-  // ======================
-
   else if(lastInput === "2"){
 
    session.matches = await fetchMatches("upcoming");
@@ -188,11 +167,6 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  // ======================
-  // RECENT MATCHES
-  // ======================
-
   else if(lastInput === "3"){
 
    session.matches = await fetchMatches("recent");
@@ -203,11 +177,6 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
-
-
-  // ======================
-  // MATCH SELECT
-  // ======================
 
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
 
@@ -224,22 +193,12 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  // ======================
-  // MORE MATCHES
-  // ======================
-
   else if(lastInput === "9" && session.menu === "matches"){
 
    session.page += 1;
    response = showMatches(session);
 
   }
-
-
-  // ======================
-  // UNSUBSCRIBE
-  // ======================
 
   else if(lastInput === "4"){
 
@@ -253,11 +212,6 @@ app.post("/ussd", async (req,res)=>{
    );
 
   }
-
-
-  // ======================
-  // BACK
-  // ======================
 
   else if(lastInput === "0"){
 
@@ -294,26 +248,27 @@ app.post("/ussd", async (req,res)=>{
 
 
 // ======================
-// SUBSCRIPTION CALLBACK
+// BDApps Subscription Notify
 // ======================
 
 app.post("/subscription", async (req,res)=>{
 
  try{
 
-  let { msisdn, status } = req.body;
+  console.log("BDApps Subscription:", req.body);
 
-  console.log("Subscription Event:", req.body);
+  const { subscriberId, status } = req.body;
 
-  if(!msisdn){
-   return res.send("OK");
+  if(!subscriberId){
+   return res.json({
+    statusCode:"E1001",
+    statusDetail:"Missing subscriberId"
+   });
   }
 
-  if(msisdn.startsWith("0")){
-   msisdn = "88" + msisdn;
-  }
+  const msisdn = subscriberId.replace("tel:","");
 
-  if(status === "SUBSCRIBED"){
+  if(status === "REGISTERED"){
 
    await Subscriber.findOneAndUpdate(
     { msisdn },
@@ -325,24 +280,35 @@ app.post("/subscription", async (req,res)=>{
     { upsert:true }
    );
 
+   console.log("User Subscribed:", msisdn);
+
   }
 
-  if(status === "UNSUBSCRIBED"){
+  if(status === "UNREGISTERED"){
 
    await Subscriber.updateOne(
     { msisdn },
     { status:"inactive" }
    );
 
+   console.log("User Unsubscribed:", msisdn);
+
   }
 
-  res.send("OK");
+  res.json({
+   statusCode:"S1000",
+   statusDetail:"Request was successfully processed"
+  });
 
  }
  catch(err){
 
-  console.log("Subscription Error:", err.message);
-  res.send("OK");
+  console.log("Subscription Error:", err);
+
+  res.json({
+   statusCode:"E1000",
+   statusDetail:"Server Error"
+  });
 
  }
 
@@ -357,10 +323,6 @@ app.get("/",(req,res)=>{
  res.send("Sportzfx Network Running");
 });
 
-
-// ======================
-// SERVER START
-// ======================
 
 const PORT = process.env.PORT || config.server.port || 10000;
 
