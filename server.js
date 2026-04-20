@@ -19,7 +19,7 @@ connectDB();
 
 
 // =========================
-// MATCH LIST
+// MATCH LIST MENU
 // =========================
 
 function showMatches(session){
@@ -40,7 +40,7 @@ function showMatches(session){
  }
 
  list.forEach((m,i)=>{
-  const number = start + i + 1;
+  const number = i + 1;
   menu += `${number}. ${parseMatchTitle(m)}\n`;
  });
 
@@ -69,13 +69,11 @@ app.post("/ussd", async (req,res)=>{
   const phone = req.body.phoneNumber || req.body.msisdn;
   const text = req.body.text || "";
 
-  // ===== DEBUG LOG =====
   console.log("========== USSD REQUEST ==========");
-  console.log("Session ID:", sessionId);
+  console.log("Session:", sessionId);
   console.log("Phone:", phone);
   console.log("Text:", text);
-  console.log("Body:", req.body);
-  console.log("==================================");
+  console.log("===================================");
 
   const session = getSession(sessionId);
 
@@ -86,139 +84,22 @@ app.post("/ussd", async (req,res)=>{
 
   let response = "";
 
+
+  // =========================
   // MAIN MENU
+  // =========================
+
   if(text === ""){
 
    if(!user || user.status !== "active"){
 
-    response =
-    "CON Sportzfx Cricket\n\n"+
-    "1 Subscribe\n"+
-    "0 Exit";
-
-   }else{
-
-    response =
-    "CON Sportzfx Cricket\n\n"+
-    "1 Live Matches\n"+
-    "2 Upcoming Matches\n"+
-    "3 Recent Matches\n"+
-    "4 Unsubscribe\n"+
-    "0 Exit";
+    return res.send(
+     "CON Sportzfx Cricket\n\n"+
+     "1 Subscribe\n"+
+     "0 Exit"
+    );
 
    }
-
-   return res.send(response);
-
-  }
-
-  // SUBSCRIBE FLOW
-  if(text === "1" && (!user || user.status !== "active")){
-
-   response =
-   "CON Confirm Subscription\n\n"+
-   "Sportzfx Cricket Service\n"+
-   "Daily charge Tk 2.67\n\n"+
-   "1 Confirm\n"+
-   "2 Cancel";
-
-   return res.send(response);
-
-  }
-
-  if(text === "1*1" && (!user || user.status !== "active")){
-
-   console.log("Subscription request triggered for:", phone);
-
-   return res.send(
-    "END Subscription request sent.\nYou will receive confirmation SMS shortly."
-   );
-
-  }
-
-  if(text === "1*2"){
-   return res.send("END Subscription cancelled");
-  }
-
-  // BLOCK NON SUBSCRIBER
-  if(!user || user.status !== "active"){
-
-   return res.send(
-    "END Please subscribe first\nDaily charge Tk 2.67\nDial *213*15755#"
-   );
-
-  }
-
-  // LIVE MATCHES
-  if(lastInput === "1"){
-
-   console.log("Fetching LIVE matches");
-
-   session.matches = await fetchMatches("live");
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Live Matches";
-
-   response = showMatches(session);
-
-  }
-
-  // UPCOMING MATCHES
-  else if(lastInput === "2"){
-
-   console.log("Fetching UPCOMING matches");
-
-   session.matches = await fetchMatches("upcoming");
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Upcoming Matches";
-
-   response = showMatches(session);
-
-  }
-
-  // RECENT MATCHES
-  else if(lastInput === "3"){
-
-   console.log("Fetching RECENT matches");
-
-   session.matches = await fetchMatches("recent");
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Recent Matches";
-
-   response = showMatches(session);
-
-  }
-
-  // UNSUBSCRIBE
-  else if(lastInput === "4"){
-
-   console.log("Unsubscribe request:", phone);
-
-   await Subscriber.updateOne(
-    { msisdn: phone },
-    { status: "inactive" }
-   );
-
-   return res.send(
-    "END You have successfully unsubscribed from Sportzfx Cricket Service."
-   );
-
-  }
-
-  // MORE MATCHES
-  else if(lastInput === "9" && session.menu === "matches"){
-
-   console.log("Next page matches");
-
-   session.page += 1;
-   response = showMatches(session);
-
-  }
-
-  // BACK
-  else if(lastInput === "0"){
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
@@ -230,6 +111,172 @@ app.post("/ussd", async (req,res)=>{
    );
 
   }
+
+
+  // =========================
+  // SUBSCRIBE FLOW
+  // =========================
+
+  if(text === "1" && (!user || user.status !== "active")){
+
+   return res.send(
+    "CON Confirm Subscription\n\n"+
+    "Sportzfx Cricket Service\n"+
+    "Daily charge Tk 2.67\n\n"+
+    "1 Confirm\n"+
+    "2 Cancel"
+   );
+
+  }
+
+  if(text === "1*1" && (!user || user.status !== "active")){
+
+   console.log("Subscription request triggered:", phone);
+
+   return res.send(
+    "END Subscription request sent.\nYou will receive confirmation SMS shortly."
+   );
+
+  }
+
+  if(text === "1*2"){
+   return res.send("END Subscription cancelled");
+  }
+
+
+  // =========================
+  // BLOCK NON SUBSCRIBER
+  // =========================
+
+  if(!user || user.status !== "active"){
+
+   return res.send(
+    "END Please subscribe first\nDaily charge Tk 2.67\nDial *213*15755#"
+   );
+
+  }
+
+
+  // =========================
+  // LIVE MATCHES
+  // =========================
+
+  if(lastInput === "1"){
+
+   session.matches = await fetchMatches("live");
+   session.page = 0;
+   session.menu = "matches";
+   session.title = "Live Matches";
+
+   response = showMatches(session);
+
+  }
+
+
+  // =========================
+  // UPCOMING MATCHES
+  // =========================
+
+  else if(lastInput === "2"){
+
+   session.matches = await fetchMatches("upcoming");
+   session.page = 0;
+   session.menu = "matches";
+   session.title = "Upcoming Matches";
+
+   response = showMatches(session);
+
+  }
+
+
+  // =========================
+  // RECENT MATCHES
+  // =========================
+
+  else if(lastInput === "3"){
+
+   session.matches = await fetchMatches("recent");
+   session.page = 0;
+   session.menu = "matches";
+   session.title = "Recent Matches";
+
+   response = showMatches(session);
+
+  }
+
+
+  // =========================
+  // MATCH SELECT
+  // =========================
+
+  else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
+
+   const index = (session.page * 5) + (Number(lastInput) - 1);
+   const match = session.matches[index];
+
+   if(!match){
+    return res.send(
+     "CON Invalid selection\n\n0 Back"
+    );
+   }
+
+   return res.send(
+    "END "+ parseMatchTitle(match) + "\n\nLive score coming soon."
+   );
+
+  }
+
+
+  // =========================
+  // MORE MATCHES
+  // =========================
+
+  else if(lastInput === "9" && session.menu === "matches"){
+
+   session.page += 1;
+   response = showMatches(session);
+
+  }
+
+
+  // =========================
+  // UNSUBSCRIBE
+  // =========================
+
+  else if(lastInput === "4"){
+
+   await Subscriber.updateOne(
+    { msisdn: phone },
+    { status: "inactive" }
+   );
+
+   return res.send(
+    "END You have successfully unsubscribed."
+   );
+
+  }
+
+
+  // =========================
+  // BACK
+  // =========================
+
+  else if(lastInput === "0"){
+
+   session.page = 0;
+   session.menu = null;
+
+   return res.send(
+    "CON Sportzfx Cricket\n\n"+
+    "1 Live Matches\n"+
+    "2 Upcoming Matches\n"+
+    "3 Recent Matches\n"+
+    "4 Unsubscribe\n"+
+    "0 Exit"
+   );
+
+  }
+
 
   res.send(response);
 
@@ -278,8 +325,6 @@ app.post("/subscription", async (req,res)=>{
 
   if(status === "SUBSCRIBED"){
 
-   console.log("User subscribed:", msisdn);
-
    await Subscriber.findOneAndUpdate(
     { msisdn },
     {
@@ -293,8 +338,6 @@ app.post("/subscription", async (req,res)=>{
   }
 
   if(status === "UNSUBSCRIBED"){
-
-   console.log("User unsubscribed:", msisdn);
 
    await Subscriber.updateOne(
     { msisdn },
