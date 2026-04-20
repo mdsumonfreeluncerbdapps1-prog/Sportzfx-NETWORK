@@ -13,14 +13,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-console.log("Starting server...");
+console.log("Starting Sportzfx server...");
 
 connectDB();
 
 
-// =========================
+// ======================
 // MATCH LIST MENU
-// =========================
+// ======================
 
 function showMatches(session){
 
@@ -55,9 +55,9 @@ function showMatches(session){
 }
 
 
-// =========================
+// ======================
 // USSD ENDPOINT
-// =========================
+// ======================
 
 app.post("/ussd", async (req,res)=>{
 
@@ -66,14 +66,14 @@ app.post("/ussd", async (req,res)=>{
   res.set("Content-Type","text/plain");
 
   const sessionId = req.body.sessionId;
-  const phone = req.body.phoneNumber || req.body.msisdn;
+  const phone = req.body.phoneNumber || req.body.msisdn || "";
   const text = req.body.text || "";
 
-  console.log("========== USSD REQUEST ==========");
+  console.log("====== USSD REQUEST ======");
   console.log("Session:", sessionId);
   console.log("Phone:", phone);
   console.log("Text:", text);
-  console.log("===================================");
+  console.log("==========================");
 
   const session = getSession(sessionId);
 
@@ -85,16 +85,16 @@ app.post("/ussd", async (req,res)=>{
   let response = "";
 
 
-  // =========================
+  // ======================
   // MAIN MENU
-  // =========================
+  // ======================
 
   if(text === ""){
 
    if(!user || user.status !== "active"){
 
     return res.send(
-     "CON Sportzfx Cricket\n\n"+
+     "CON Welcome to Sportzfx Cricket\n\n"+
      "1 Subscribe\n"+
      "0 Exit"
     );
@@ -113,9 +113,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // SUBSCRIBE FLOW
-  // =========================
+  // ======================
 
   if(text === "1" && (!user || user.status !== "active")){
 
@@ -131,10 +131,10 @@ app.post("/ussd", async (req,res)=>{
 
   if(text === "1*1" && (!user || user.status !== "active")){
 
-   console.log("Subscription request triggered:", phone);
+   console.log("Subscription request:", phone);
 
    return res.send(
-    "END Subscription request sent.\nYou will receive confirmation SMS shortly."
+    "END Subscription request sent.\nConfirmation SMS will follow."
    );
 
   }
@@ -144,9 +144,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // BLOCK NON SUBSCRIBER
-  // =========================
+  // ======================
 
   if(!user || user.status !== "active"){
 
@@ -157,9 +157,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // LIVE MATCHES
-  // =========================
+  // ======================
 
   if(lastInput === "1"){
 
@@ -173,9 +173,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // UPCOMING MATCHES
-  // =========================
+  // ======================
 
   else if(lastInput === "2"){
 
@@ -189,9 +189,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // RECENT MATCHES
-  // =========================
+  // ======================
 
   else if(lastInput === "3"){
 
@@ -205,9 +205,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // MATCH SELECT
-  // =========================
+  // ======================
 
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
 
@@ -215,9 +215,7 @@ app.post("/ussd", async (req,res)=>{
    const match = session.matches[index];
 
    if(!match){
-    return res.send(
-     "CON Invalid selection\n\n0 Back"
-    );
+    return res.send("CON Invalid selection\n\n0 Back");
    }
 
    return res.send(
@@ -227,9 +225,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // MORE MATCHES
-  // =========================
+  // ======================
 
   else if(lastInput === "9" && session.menu === "matches"){
 
@@ -239,9 +237,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // UNSUBSCRIBE
-  // =========================
+  // ======================
 
   else if(lastInput === "4"){
 
@@ -257,9 +255,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-  // =========================
+  // ======================
   // BACK
-  // =========================
+  // ======================
 
   else if(lastInput === "0"){
 
@@ -277,13 +275,12 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
   res.send(response);
 
  }
  catch(err){
 
-  console.log("USSD Error:",err.message);
+  console.log("USSD ERROR:", err.message);
 
   res.send(
    "CON Service temporarily unavailable\n"+
@@ -296,9 +293,9 @@ app.post("/ussd", async (req,res)=>{
 });
 
 
-// =========================
+// ======================
 // SUBSCRIPTION CALLBACK
-// =========================
+// ======================
 
 app.post("/subscription", async (req,res)=>{
 
@@ -314,13 +311,6 @@ app.post("/subscription", async (req,res)=>{
 
   if(msisdn.startsWith("0")){
    msisdn = "88" + msisdn;
-  }
-
-  const allowedPrefixes = ["88016","88018"];
-
-  if(!allowedPrefixes.some(p => msisdn.startsWith(p))){
-   console.log("Operator not supported:", msisdn);
-   return res.send("OK");
   }
 
   if(status === "SUBSCRIBED"){
@@ -359,21 +349,21 @@ app.post("/subscription", async (req,res)=>{
 });
 
 
-// =========================
+// ======================
 // HEALTH CHECK
-// =========================
+// ======================
 
 app.get("/",(req,res)=>{
  res.send("Sportzfx Network Running");
 });
 
 
-// =========================
+// ======================
 // SERVER START
-// =========================
+// ======================
 
 const PORT = process.env.PORT || config.server.port || 10000;
 
 app.listen(PORT,()=>{
- console.log("Server running on",PORT);
+ console.log("Sportzfx server running on port",PORT);
 });
