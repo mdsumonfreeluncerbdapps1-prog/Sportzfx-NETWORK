@@ -45,7 +45,7 @@ function showMatches(session){
  });
 
  if(end < (session.matches || []).length){
-  menu += `\n9 More Matches`;
+  menu += `\n9 More`;
  }
 
  menu += `\n0 Back`;
@@ -85,12 +85,17 @@ app.post("/ussd", async (req,res)=>{
   let response = "";
 
 
+  // ======================
+  // FIRST SCREEN
+  // ======================
+
   if(text === ""){
 
    if(!user || user.status !== "active"){
 
     return res.send(
      "CON Welcome to Sportzfx Cricket\n\n"+
+     "Get live cricket scores and updates.\n\n"+
      "1 Subscribe\n"+
      "0 Exit"
     );
@@ -108,6 +113,10 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
+  // ======================
+  // SUBSCRIPTION FLOW
+  // ======================
 
   if(text === "1" && (!user || user.status !== "active")){
 
@@ -136,14 +145,22 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
+  // ======================
+  // BLOCK NON-SUBSCRIBED USERS
+  // ======================
+
   if(!user || user.status !== "active"){
 
    return res.send(
-    "END Please subscribe first\nDaily charge Tk 2.67\nDial *213*15755#"
+    "END Please subscribe first.\n\nDial *213*15755#"
    );
 
   }
 
+
+  // ======================
+  // LIVE MATCHES
+  // ======================
 
   if(lastInput === "1"){
 
@@ -156,6 +173,10 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+  // ======================
+  // UPCOMING MATCHES
+  // ======================
+
   else if(lastInput === "2"){
 
    session.matches = await fetchMatches("upcoming");
@@ -167,6 +188,10 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+  // ======================
+  // RECENT MATCHES
+  // ======================
+
   else if(lastInput === "3"){
 
    session.matches = await fetchMatches("recent");
@@ -177,6 +202,11 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
+
+
+  // ======================
+  // MATCH DETAILS
+  // ======================
 
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
 
@@ -193,12 +223,22 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
+  // ======================
+  // PAGINATION
+  // ======================
+
   else if(lastInput === "9" && session.menu === "matches"){
 
    session.page += 1;
    response = showMatches(session);
 
   }
+
+
+  // ======================
+  // UNSUBSCRIBE
+  // ======================
 
   else if(lastInput === "4"){
 
@@ -212,6 +252,11 @@ app.post("/ussd", async (req,res)=>{
    );
 
   }
+
+
+  // ======================
+  // BACK TO MAIN MENU
+  // ======================
 
   else if(lastInput === "0"){
 
