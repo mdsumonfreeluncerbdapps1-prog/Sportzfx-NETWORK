@@ -1,31 +1,18 @@
-function shortTeam(name){
-
- if(!name) return "TBD";
-
- return name
-  .trim()
-  .split(" ")
-  .map(w => w[0])
-  .join("")
-  .substring(0,3)
-  .toUpperCase();
-
-}
-
 function parseMatchTitle(match){
 
- const title = match.match_name || "";
+ const name = match.match_name || "";
 
- const teams = title.match(/(.+?)\s+vs\s+(.+)/i);
+ const teams = name.match(/([A-Za-z ]+)\s+vs\s+([A-Za-z ]+)/i);
 
- if(!teams){
-  return "Match";
+ if(teams){
+
+  const team1 = teams[1].trim().substring(0,3).toUpperCase();
+  const team2 = teams[2].trim().substring(0,3).toUpperCase();
+
+  return `${team1} v ${team2}`;
  }
 
- const team1 = shortTeam(teams[1]);
- const team2 = shortTeam(teams[2]);
-
- return `${team1} v ${team2}`;
+ return "Match";
 
 }
 
