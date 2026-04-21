@@ -33,22 +33,23 @@ function showMatches(session){
  let menu = `CON ${session.title}\n\n`;
 
  if(list.length === 0){
+
   return (
    "CON No Matches\n\n"+
-   "Try later\n"+
    "0 Back"
   );
+
  }
 
  list.forEach((m,i)=>{
+
   const number = i + 1;
+
   menu += `${number} ${parseMatchTitle(m)}\n`;
+
  });
 
- if(end < (session.matches || []).length){
-  menu += `\n9 More`;
- }
-
+ menu += `\n9 Refresh`;
  menu += `\n0 Back`;
 
  return menu;
@@ -206,7 +207,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // MATCH DETAILS + SCORE
+  // MATCH DETAILS
   // ======================
 
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
@@ -231,7 +232,9 @@ app.post("/ussd", async (req,res)=>{
     }
 
    }catch(err){
+
     console.log("Score API error:", err.message);
+
    }
 
    return res.send(
@@ -244,12 +247,11 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // PAGINATION
+  // REFRESH
   // ======================
 
   else if(lastInput === "9" && session.menu === "matches"){
 
-   session.page += 1;
    response = showMatches(session);
 
   }
@@ -280,7 +282,16 @@ app.post("/ussd", async (req,res)=>{
   else if(lastInput === "0"){
 
    if(session.menu === "matches"){
-    return res.send(showMatches(session));
+
+    return res.send(
+     "CON Sportzfx Cricket\n\n"+
+     "1 Live\n"+
+     "2 Upcoming\n"+
+     "3 Recent\n"+
+     "4 Unsub\n"+
+     "0 Exit"
+    );
+
    }
 
    return res.send(
@@ -323,10 +334,12 @@ app.post("/subscription", async (req,res)=>{
   const { subscriberId, status } = req.body;
 
   if(!subscriberId){
+
    return res.json({
     statusCode:"E1001",
     statusDetail:"Missing subscriberId"
    });
+
   }
 
   const msisdn = subscriberId.replace("tel:","");
