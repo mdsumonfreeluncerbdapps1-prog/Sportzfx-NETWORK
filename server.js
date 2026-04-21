@@ -17,17 +17,47 @@ connectDB();
 
 
 // ======================
+// API CACHE (10 sec)
+// ======================
+
+const matchCache = {
+ live: { data: [], time: 0 },
+ upcoming: { data: [], time: 0 },
+ recent: { data: [], time: 0 }
+};
+
+const CACHE_TIME = 10000;
+
+
+// ======================
 // SAFE MATCH FETCH
 // ======================
 
 async function getMatchesSafe(type){
+
  try{
+
+  const now = Date.now();
+
+  if(now - matchCache[type].time < CACHE_TIME){
+   return matchCache[type].data;
+  }
+
   const matches = await fetchMatches(type);
+
   if(!matches || !Array.isArray(matches)){
    return [];
   }
+
+  matchCache[type] = {
+   data: matches,
+   time: now
+  };
+
   return matches;
+
  }catch(err){
+
   console.log("Match API error:",err.message);
   return [];
  }
@@ -77,6 +107,7 @@ function showMatches(session){
 // ======================
 
 function mainMenu(){
+
  return (
   "CON Sportzfx Cricket\n\n"+
   "1 Live Matches\n"+
@@ -85,6 +116,7 @@ function mainMenu(){
   "4 Unsubscribe\n"+
   "0 Exit"
  );
+
 }
 
 
@@ -174,9 +206,11 @@ app.post("/ussd", async (req,res)=>{
   // ======================
 
   if(!user || user.status !== "active"){
+
    return res.send(
     "END Please subscribe first.\n\nDial *213*15755#"
    );
+
   }
 
 
@@ -276,9 +310,14 @@ app.post("/ussd", async (req,res)=>{
   // REFRESH SCORE
   // ======================
 
-  else if(lastInput === "1" && session.selectedMatch !== null){
+  else if(lastInput === "1"){
+
+   if(session.selectedMatch === null || session.selectedMatch === undefined){
+    return res.send("CON Session expired\n\n0 Back");
+   }
 
    const matches = await getMatchesSafe("live");
+
    const match = matches[session.selectedMatch];
 
    if(!match){
@@ -346,4 +385,15 @@ app.post("/ussd", async (req,res)=>{
    "0 Back"
   );
  }
+});
+
+
+// ======================
+// SERVER START
+// ======================
+
+const PORT = config.port || 10000;
+
+app.listen(PORT,()=>{
+ console.log("USSD server running on port",PORT);
 });
