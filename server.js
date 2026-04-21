@@ -41,6 +41,11 @@ async function getMatchesSafe(type){
 function showMatches(session){
 
  const matches = session.matches || [];
+
+ if(matches.length === 0){
+  return "CON No matches available\n\n0 Back";
+ }
+
  const start = session.page * 5;
  const end = start + 5;
 
@@ -53,7 +58,8 @@ function showMatches(session){
  let menu = `CON ${session.title}\n\n`;
 
  list.forEach((m,i)=>{
-  menu += `${i+1}. ${parseMatchTitle(m)}\n`;
+  const title = parseMatchTitle(m).substring(0,30);
+  menu += `${i+1}. ${title}\n`;
  });
 
  if(end < matches.length){
@@ -63,7 +69,6 @@ function showMatches(session){
  menu += `\n0 Back`;
 
  return menu;
-
 }
 
 
@@ -102,10 +107,9 @@ app.post("/ussd", async (req,res)=>{
   const inputs = text.split("*");
   const lastInput = inputs[inputs.length - 1];
 
-  const user = await Subscriber.findOne({ msisdn: phone });
+  const user = await Subscriber.findOne({ msisdn: phone }).lean();
 
   let response = "";
-
 
 
   // ======================
@@ -119,29 +123,13 @@ app.post("/ussd", async (req,res)=>{
     return res.send(
      "CON Welcome to Sportzfx Cricket\n\n"+
      "Get live cricket scores and updates.\n\n"+
-     "1 Subscribe\n"+
+     "5 Subscribe\n"+
      "0 Exit"
     );
 
    }
 
    return res.send(mainMenu());
-
-  }
-
-
-
-  // ======================
-  // BACK
-  // ======================
-
-  if(lastInput === "0" && session.menu === "matches"){
-
-   session.page = 0;
-   session.menu = null;
-
-   return res.send(mainMenu());
-
   }
 
 
@@ -157,10 +145,10 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // SUBSCRIBE FLOW
+  // SUBSCRIBE FLOW (FIXED)
   // ======================
 
-  if(text === "1" && (!user || user.status !== "active")){
+  if(text === "5" && (!user || user.status !== "active")){
 
    return res.send(
     "CON Confirm Subscription\n\n"+
@@ -173,13 +161,13 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-  if(text === "1*1"){
+  if(text === "5*1"){
    return res.send(
     "END Subscription request sent.\nConfirmation SMS will follow."
    );
   }
 
-  if(text === "1*2"){
+  if(text === "5*2"){
    return res.send("END Subscription cancelled");
   }
 
@@ -198,10 +186,25 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
+  // BACK
+  // ======================
+
+  if(lastInput === "0" && session.menu === "matches"){
+
+   session.page = 0;
+   session.matches = [];
+   session.menu = null;
+
+   return res.send(mainMenu());
+  }
+
+
+
+  // ======================
   // LIVE MATCHES
   // ======================
 
-  if(lastInput === "1"){
+  if(text === "1"){
 
    session.matches = await getMatchesSafe("live");
 
@@ -210,7 +213,6 @@ app.post("/ussd", async (req,res)=>{
    session.title = "Live Matches";
 
    response = showMatches(session);
-
   }
 
 
@@ -219,7 +221,7 @@ app.post("/ussd", async (req,res)=>{
   // UPCOMING MATCHES
   // ======================
 
-  else if(lastInput === "2"){
+  else if(text === "2"){
 
    session.matches = await getMatchesSafe("upcoming");
 
@@ -228,7 +230,6 @@ app.post("/ussd", async (req,res)=>{
    session.title = "Upcoming Matches";
 
    response = showMatches(session);
-
   }
 
 
@@ -237,7 +238,7 @@ app.post("/ussd", async (req,res)=>{
   // RECENT MATCHES
   // ======================
 
-  else if(lastInput === "3"){
+  else if(text === "3"){
 
    session.matches = await getMatchesSafe("recent");
 
@@ -246,7 +247,6 @@ app.post("/ussd", async (req,res)=>{
    session.title = "Recent Matches";
 
    response = showMatches(session);
-
   }
 
 
@@ -265,23 +265,24 @@ app.post("/ussd", async (req,res)=>{
    }
 
    return res.send(
-    "CON "+ parseMatchTitle(match) +
+    "CON "+ parseMatchTitle(match).substring(0,30) +
     "\n\nScore update coming soon.\n\n0 Back"
    );
-
   }
 
 
 
   // ======================
-  // PAGINATION
+  // PAGINATION SAFE
   // ======================
 
   else if(lastInput === "9" && session.menu === "matches"){
 
-   session.page += 1;
-   response = showMatches(session);
+   if((session.page + 1) * 5 < session.matches.length){
+    session.page += 1;
+   }
 
+   response = showMatches(session);
   }
 
 
@@ -298,7 +299,6 @@ app.post("/ussd", async (req,res)=>{
    );
 
    return res.send("END You have successfully unsubscribed.");
-
   }
 
 
@@ -323,9 +323,7 @@ app.post("/ussd", async (req,res)=>{
    "Please try again later.\n\n"+
    "0 Back"
   );
-
  }
-
 });
 
 
@@ -353,7 +351,6 @@ app.post("/subscription", async (req,res)=>{
     },
     { upsert:true }
    );
-
   }
 
   if(status === "UNREGISTERED"){
@@ -362,7 +359,6 @@ app.post("/subscription", async (req,res)=>{
     { msisdn },
     { status:"inactive" }
    );
-
   }
 
   res.json({
@@ -377,9 +373,7 @@ app.post("/subscription", async (req,res)=>{
    statusCode:"E1000",
    statusDetail:"Server Error"
   });
-
  }
-
 });
 
 
