@@ -2,6 +2,7 @@ const axios = require("axios");
 
 const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
 
+
 // =========================
 // CACHE STORAGE
 // =========================
@@ -22,7 +23,7 @@ const CACHE_TIME = 30000;
 
 
 // =========================
-// PARSE TEXT RESPONSE
+// SMART MATCH PARSER
 // =========================
 
 function parseMatches(text){
@@ -41,14 +42,24 @@ function parseMatches(text){
 
   if(!line) continue;
 
+  // remove numbering like "1. "
   line = line.replace(/^\d+\.\s*/, "");
 
-  if(line.includes("vs")){
+  const lower = line.toLowerCase();
+
+  // detect match patterns
+  if(
+   lower.includes(" vs ") ||
+   lower.includes(" v ") ||
+   lower.includes(" - ")
+  ){
+
    matches.push({
     match_name: line,
     score: [],
     result: ""
    });
+
   }
 
  }
@@ -68,6 +79,7 @@ async function fetchMatches(type){
 
   const now = Date.now();
 
+  // cache check
   if(cache[type] && (now - lastFetch[type]) < CACHE_TIME){
    return cache[type];
   }
@@ -92,6 +104,7 @@ async function fetchMatches(type){
 
   console.log("Cricket API Error:",err.message);
 
+  // fallback cache
   return cache[type] || [];
 
  }
