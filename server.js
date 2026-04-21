@@ -34,7 +34,7 @@ function showMatches(session){
  if(list.length === 0){
   return (
    "CON No Matches Available\n\n"+
-   "Please try again later.\n"+
+   "Please try again later.\n\n"+
    "0 Back"
   );
  }
@@ -45,7 +45,7 @@ function showMatches(session){
  });
 
  if(end < (session.matches || []).length){
-  menu += `\n9 More`;
+  menu += `\n9 More Matches`;
  }
 
  menu += `\n0 Back`;
@@ -77,6 +77,25 @@ app.post("/ussd", async (req,res)=>{
 
   const session = getSession(sessionId);
 
+  // ======================
+  // SESSION TIMEOUT
+  // ======================
+
+  const now = Date.now();
+
+  if(!session.lastAccess){
+   session.lastAccess = now;
+  }
+
+  if(now - session.lastAccess > 60000){
+   session.page = 0;
+   session.menu = null;
+   session.matches = null;
+  }
+
+  session.lastAccess = now;
+
+
   const inputs = text.split("*");
   const lastInput = inputs[inputs.length - 1];
 
@@ -86,7 +105,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // FIRST SCREEN
+  // SESSION START
   // ======================
 
   if(text === ""){
@@ -115,6 +134,15 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
+  // EXIT
+  // ======================
+
+  if(text === "0"){
+   return res.send("END Thank you for using Sportzfx Cricket.");
+  }
+
+
+  // ======================
   // SUBSCRIPTION FLOW
   // ======================
 
@@ -125,10 +153,12 @@ app.post("/ussd", async (req,res)=>{
     "Sportzfx Cricket Service\n"+
     "Daily charge Tk 2.67\n\n"+
     "1 Confirm\n"+
-    "2 Cancel"
+    "2 Cancel\n"+
+    "0 Back"
    );
 
   }
+
 
   if(text === "1*1" && (!user || user.status !== "active")){
 
@@ -140,13 +170,26 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
   if(text === "1*2"){
    return res.send("END Subscription cancelled");
   }
 
 
+  if(text === "1*0"){
+
+   return res.send(
+    "CON Welcome to Sportzfx Cricket\n\n"+
+    "Get live cricket scores and updates.\n\n"+
+    "1 Subscribe\n"+
+    "0 Exit"
+   );
+
+  }
+
+
   // ======================
-  // BLOCK NON-SUBSCRIBED USERS
+  // BLOCK NON SUBSCRIBERS
   // ======================
 
   if(!user || user.status !== "active"){
@@ -173,6 +216,7 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
   // ======================
   // UPCOMING MATCHES
   // ======================
@@ -187,6 +231,7 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
+
 
   // ======================
   // RECENT MATCHES
@@ -218,7 +263,8 @@ app.post("/ussd", async (req,res)=>{
    }
 
    return res.send(
-    "END "+ parseMatchTitle(match) + "\n\nLive score coming soon."
+    "CON "+ parseMatchTitle(match) +
+    "\n\nLive score coming soon.\n\n0 Back"
    );
 
   }
@@ -274,6 +320,7 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
   res.send(response);
 
  }
@@ -293,7 +340,7 @@ app.post("/ussd", async (req,res)=>{
 
 
 // ======================
-// BDApps Subscription Notify
+// BDApps SUBSCRIPTION CALLBACK
 // ======================
 
 app.post("/subscription", async (req,res)=>{
