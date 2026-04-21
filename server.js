@@ -33,20 +33,11 @@ function showMatches(session){
  let menu = `CON ${session.title}\n\n`;
 
  if(list.length === 0){
-
-  return (
-   "CON No Matches\n\n"+
-   "0 Back"
-  );
-
+  return "CON No Matches\n\n0 Back";
  }
 
  list.forEach((m,i)=>{
-
-  const number = i + 1;
-
-  menu += `${number} ${parseMatchTitle(m)}\n`;
-
+  menu += `${i+1}. ${parseMatchTitle(m)}\n`;
  });
 
  menu += `\n9 Refresh`;
@@ -71,16 +62,10 @@ app.post("/ussd", async (req,res)=>{
   const phone = req.body.phoneNumber || req.body.msisdn || "";
   const text = req.body.text || "";
 
-  console.log("====== USSD REQUEST ======");
-  console.log("Session:", sessionId);
-  console.log("Phone:", phone);
-  console.log("Text:", text);
-  console.log("==========================");
-
   const session = getSession(sessionId);
 
   const inputs = text.split("*");
-  const lastInput = inputs[inputs.length - 1];
+  const lastInput = inputs[inputs.length-1];
 
   const user = await Subscriber.findOne({ msisdn: phone });
 
@@ -116,7 +101,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // SUBSCRIPTION FLOW
+  // SUBSCRIBE FLOW
   // ======================
 
   if(text === "1" && (!user || user.status !== "active")){
@@ -132,11 +117,7 @@ app.post("/ussd", async (req,res)=>{
 
   if(text === "1*1" && (!user || user.status !== "active")){
 
-   console.log("Subscription request:", phone);
-
-   return res.send(
-    "END Subscription request sent"
-   );
+   return res.send("END Subscription request sent");
 
   }
 
@@ -146,7 +127,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // BLOCK NON-SUBSCRIBED USERS
+  // BLOCK NON-SUBSCRIBER
   // ======================
 
   if(!user || user.status !== "active"){
@@ -159,60 +140,13 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // LIVE MATCHES
+  // MATCH SELECT
   // ======================
 
-  if(text === "1"){
-
-   session.matches = await fetchMatches("live");
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Live";
-
-   response = showMatches(session);
-
-  }
-
-
-  // ======================
-  // UPCOMING MATCHES
-  // ======================
-
-  else if(text === "2"){
-
-   session.matches = await fetchMatches("upcoming");
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Upcoming";
-
-   response = showMatches(session);
-
-  }
-
-
-  // ======================
-  // RECENT MATCHES
-  // ======================
-
-  else if(text === "3"){
-
-   session.matches = await fetchMatches("recent");
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Recent";
-
-   response = showMatches(session);
-
-  }
-
-
-  // ======================
-  // MATCH DETAILS
-  // ======================
-
-  else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
+  if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
 
    const index = (session.page * 5) + (Number(lastInput) - 1);
+
    const match = session.matches[index];
 
    if(!match){
@@ -232,16 +166,62 @@ app.post("/ussd", async (req,res)=>{
     }
 
    }catch(err){
-
-    console.log("Score API error:", err.message);
-
+    console.log("Score API error:",err.message);
    }
 
    return res.send(
-    "CON "+ parseMatchTitle(match) + "\n\n"+
-    score + "\n\n"+
+    "CON "+parseMatchTitle(match)+"\n\n"+
+    score+"\n\n"+
     "0 Back"
    );
+
+  }
+
+
+  // ======================
+  // LIVE
+  // ======================
+
+  if(text === "1" && session.menu !== "matches"){
+
+   session.matches = await fetchMatches("live");
+   session.page = 0;
+   session.menu = "matches";
+   session.title = "Live";
+
+   response = showMatches(session);
+
+  }
+
+
+  // ======================
+  // UPCOMING
+  // ======================
+
+  else if(text === "2"){
+
+   session.matches = await fetchMatches("upcoming");
+   session.page = 0;
+   session.menu = "matches";
+   session.title = "Upcoming";
+
+   response = showMatches(session);
+
+  }
+
+
+  // ======================
+  // RECENT
+  // ======================
+
+  else if(text === "3"){
+
+   session.matches = await fetchMatches("recent");
+   session.page = 0;
+   session.menu = "matches";
+   session.title = "Recent";
+
+   response = showMatches(session);
 
   }
 
@@ -265,12 +245,10 @@ app.post("/ussd", async (req,res)=>{
 
    await Subscriber.updateOne(
     { msisdn: phone },
-    { status: "inactive" }
+    { status:"inactive" }
    );
 
-   return res.send(
-    "END Unsubscribed"
-   );
+   return res.send("END Unsubscribed");
 
   }
 
@@ -281,18 +259,7 @@ app.post("/ussd", async (req,res)=>{
 
   else if(lastInput === "0"){
 
-   if(session.menu === "matches"){
-
-    return res.send(
-     "CON Sportzfx Cricket\n\n"+
-     "1 Live\n"+
-     "2 Upcoming\n"+
-     "3 Recent\n"+
-     "4 Unsub\n"+
-     "0 Exit"
-    );
-
-   }
+   session.menu = null;
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
@@ -310,7 +277,7 @@ app.post("/ussd", async (req,res)=>{
  }
  catch(err){
 
-  console.log("USSD ERROR:", err.message);
+  console.log("USSD ERROR:",err.message);
 
   res.send(
    "CON Service error\n\n0 Back"
@@ -322,25 +289,14 @@ app.post("/ussd", async (req,res)=>{
 
 
 // ======================
-// BDApps SUBSCRIPTION CALLBACK
+// BDApps CALLBACK
 // ======================
 
 app.post("/subscription", async (req,res)=>{
 
  try{
 
-  console.log("BDApps Subscription:", req.body);
-
-  const { subscriberId, status } = req.body;
-
-  if(!subscriberId){
-
-   return res.json({
-    statusCode:"E1001",
-    statusDetail:"Missing subscriberId"
-   });
-
-  }
+  const { subscriberId,status } = req.body;
 
   const msisdn = subscriberId.replace("tel:","");
 
@@ -375,8 +331,6 @@ app.post("/subscription", async (req,res)=>{
  }
  catch(err){
 
-  console.log("Subscription Error:", err);
-
   res.json({
    statusCode:"E1000",
    statusDetail:"Server Error"
@@ -388,13 +342,10 @@ app.post("/subscription", async (req,res)=>{
 
 
 // ======================
-// HEALTH CHECK
-// ======================
 
 app.get("/",(req,res)=>{
  res.send("Sportzfx Network Running");
 });
-
 
 const PORT = process.env.PORT || config.server.port || 10000;
 
