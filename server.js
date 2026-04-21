@@ -133,7 +133,6 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-
   // ======================
   // EXIT
   // ======================
@@ -143,9 +142,8 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-
   // ======================
-  // SUBSCRIBE FLOW (FIXED)
+  // SUBSCRIBE FLOW
   // ======================
 
   if(text === "5" && (!user || user.status !== "active")){
@@ -158,7 +156,6 @@ app.post("/ussd", async (req,res)=>{
     "2 Cancel\n"+
     "0 Back"
    );
-
   }
 
   if(text === "5*1"){
@@ -172,7 +169,6 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-
   // ======================
   // BLOCK NON SUBSCRIBERS
   // ======================
@@ -184,7 +180,6 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-
   // ======================
   // BACK
   // ======================
@@ -194,10 +189,10 @@ app.post("/ussd", async (req,res)=>{
    session.page = 0;
    session.matches = [];
    session.menu = null;
+   session.selectedMatch = null;
 
    return res.send(mainMenu());
   }
-
 
 
   // ======================
@@ -216,7 +211,6 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-
   // ======================
   // UPCOMING MATCHES
   // ======================
@@ -231,7 +225,6 @@ app.post("/ussd", async (req,res)=>{
 
    response = showMatches(session);
   }
-
 
 
   // ======================
@@ -250,30 +243,65 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
-
   // ======================
   // MATCH DETAILS
   // ======================
 
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
 
-   const index = (session.page * 5) + (Number(lastInput) - 1);
-   const match = session.matches[index];
+   session.selectedMatch = (session.page * 5) + (Number(lastInput) - 1);
+
+   const match = session.matches[session.selectedMatch];
 
    if(!match){
     return res.send("CON Invalid selection\n\n0 Back");
    }
 
+   const title = parseMatchTitle(match).substring(0,30);
+   const team1 = match.team1Score || "";
+   const team2 = match.team2Score || "";
+   const status = match.status || "Score updating...";
+
    return res.send(
-    "CON "+ parseMatchTitle(match).substring(0,30) +
-    "\n\nScore update coming soon.\n\n0 Back"
+    "CON " + title +
+    "\n\n" + team1 +
+    "\n" + team2 +
+    "\n\n" + status +
+    "\n\n1 Refresh\n0 Back"
    );
   }
 
 
+  // ======================
+  // REFRESH SCORE
+  // ======================
+
+  else if(lastInput === "1" && session.selectedMatch !== null){
+
+   const matches = await getMatchesSafe("live");
+   const match = matches[session.selectedMatch];
+
+   if(!match){
+    return res.send("CON Score unavailable\n\n0 Back");
+   }
+
+   const title = parseMatchTitle(match).substring(0,30);
+   const team1 = match.team1Score || "";
+   const team2 = match.team2Score || "";
+   const status = match.status || "Score updating...";
+
+   return res.send(
+    "CON " + title +
+    "\n\n" + team1 +
+    "\n" + team2 +
+    "\n\n" + status +
+    "\n\n1 Refresh\n0 Back"
+   );
+  }
+
 
   // ======================
-  // PAGINATION SAFE
+  // PAGINATION
   // ======================
 
   else if(lastInput === "9" && session.menu === "matches"){
@@ -284,7 +312,6 @@ app.post("/ussd", async (req,res)=>{
 
    response = showMatches(session);
   }
-
 
 
   // ======================
@@ -301,11 +328,6 @@ app.post("/ussd", async (req,res)=>{
    return res.send("END You have successfully unsubscribed.");
   }
 
-
-
-  // ======================
-  // INVALID INPUT FIX
-  // ======================
 
   if(!response){
    response = "CON Invalid selection\n\n0 Back";
@@ -324,66 +346,4 @@ app.post("/ussd", async (req,res)=>{
    "0 Back"
   );
  }
-});
-
-
-
-// ======================
-// SUBSCRIPTION CALLBACK
-// ======================
-
-app.post("/subscription", async (req,res)=>{
-
- try{
-
-  const { subscriberId, status } = req.body;
-
-  const msisdn = subscriberId.replace("tel:","");
-
-  if(status === "REGISTERED"){
-
-   await Subscriber.findOneAndUpdate(
-    { msisdn },
-    {
-     msisdn,
-     status:"active",
-     subscribeDate:new Date()
-    },
-    { upsert:true }
-   );
-  }
-
-  if(status === "UNREGISTERED"){
-
-   await Subscriber.updateOne(
-    { msisdn },
-    { status:"inactive" }
-   );
-  }
-
-  res.json({
-   statusCode:"S1000",
-   statusDetail:"Request was successfully processed"
-  });
-
- }
- catch(err){
-
-  res.json({
-   statusCode:"E1000",
-   statusDetail:"Server Error"
-  });
- }
-});
-
-
-app.get("/",(req,res)=>{
- res.send("Sportzfx Network Running");
-});
-
-
-const PORT = process.env.PORT || config.server.port || 10000;
-
-app.listen(PORT,()=>{
- console.log("Sportzfx server running on port",PORT);
 });
