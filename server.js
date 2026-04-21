@@ -19,6 +19,32 @@ connectDB();
 
 
 // ======================
+// SAFE MATCH FETCH
+// ======================
+
+async function getMatchesSafe(type){
+
+ try{
+
+  const matches = await fetchMatches(type);
+
+  if(!matches || !Array.isArray(matches)){
+   return [];
+  }
+
+  return matches;
+
+ }catch(err){
+
+  console.log("Match API error:",err.message);
+  return [];
+
+ }
+
+}
+
+
+// ======================
 // MATCH LIST MENU
 // ======================
 
@@ -69,32 +95,7 @@ app.post("/ussd", async (req,res)=>{
   const phone = req.body.phoneNumber || req.body.msisdn || "";
   const text = req.body.text || "";
 
-  console.log("====== USSD REQUEST ======");
-  console.log("Session:", sessionId);
-  console.log("Phone:", phone);
-  console.log("Text:", text);
-  console.log("==========================");
-
   const session = getSession(sessionId);
-
-  // ======================
-  // SESSION TIMEOUT
-  // ======================
-
-  const now = Date.now();
-
-  if(!session.lastAccess){
-   session.lastAccess = now;
-  }
-
-  if(now - session.lastAccess > 60000){
-   session.page = 0;
-   session.menu = null;
-   session.matches = null;
-  }
-
-  session.lastAccess = now;
-
 
   const inputs = text.split("*");
   const lastInput = inputs[inputs.length - 1];
@@ -102,6 +103,7 @@ app.post("/ussd", async (req,res)=>{
   const user = await Subscriber.findOne({ msisdn: phone });
 
   let response = "";
+
 
 
   // ======================
@@ -133,6 +135,7 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
+
   // ======================
   // EXIT
   // ======================
@@ -142,8 +145,9 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
+
   // ======================
-  // SUBSCRIPTION FLOW
+  // SUBSCRIBE FLOW
   // ======================
 
   if(text === "1" && (!user || user.status !== "active")){
@@ -159,33 +163,16 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
-  if(text === "1*1" && (!user || user.status !== "active")){
-
-   console.log("Subscription request:", phone);
-
+  if(text === "1*1"){
    return res.send(
     "END Subscription request sent.\nConfirmation SMS will follow."
    );
-
   }
-
 
   if(text === "1*2"){
    return res.send("END Subscription cancelled");
   }
 
-
-  if(text === "1*0"){
-
-   return res.send(
-    "CON Welcome to Sportzfx Cricket\n\n"+
-    "Get live cricket scores and updates.\n\n"+
-    "1 Subscribe\n"+
-    "0 Exit"
-   );
-
-  }
 
 
   // ======================
@@ -193,12 +180,11 @@ app.post("/ussd", async (req,res)=>{
   // ======================
 
   if(!user || user.status !== "active"){
-
    return res.send(
     "END Please subscribe first.\n\nDial *213*15755#"
    );
-
   }
+
 
 
   // ======================
@@ -207,7 +193,8 @@ app.post("/ussd", async (req,res)=>{
 
   if(lastInput === "1"){
 
-   session.matches = await fetchMatches("live");
+   session.matches = await getMatchesSafe("live");
+
    session.page = 0;
    session.menu = "matches";
    session.title = "Live Matches";
@@ -217,13 +204,15 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
+
   // ======================
   // UPCOMING MATCHES
   // ======================
 
   else if(lastInput === "2"){
 
-   session.matches = await fetchMatches("upcoming");
+   session.matches = await getMatchesSafe("upcoming");
+
    session.page = 0;
    session.menu = "matches";
    session.title = "Upcoming Matches";
@@ -233,13 +222,15 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
+
   // ======================
   // RECENT MATCHES
   // ======================
 
   else if(lastInput === "3"){
 
-   session.matches = await fetchMatches("recent");
+   session.matches = await getMatchesSafe("recent");
+
    session.page = 0;
    session.menu = "matches";
    session.title = "Recent Matches";
@@ -247,6 +238,7 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
+
 
 
   // ======================
@@ -270,6 +262,7 @@ app.post("/ussd", async (req,res)=>{
   }
 
 
+
   // ======================
   // PAGINATION
   // ======================
@@ -280,6 +273,7 @@ app.post("/ussd", async (req,res)=>{
    response = showMatches(session);
 
   }
+
 
 
   // ======================
@@ -298,6 +292,7 @@ app.post("/ussd", async (req,res)=>{
    );
 
   }
+
 
 
   // ======================
@@ -320,13 +315,12 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
-
   res.send(response);
 
  }
  catch(err){
 
-  console.log("USSD ERROR:", err.message);
+  console.log("USSD ERROR:",err.message);
 
   res.send(
    "CON Service temporarily unavailable\n"+
@@ -339,24 +333,16 @@ app.post("/ussd", async (req,res)=>{
 });
 
 
+
 // ======================
-// BDApps SUBSCRIPTION CALLBACK
+// SUBSCRIPTION CALLBACK
 // ======================
 
 app.post("/subscription", async (req,res)=>{
 
  try{
 
-  console.log("BDApps Subscription:", req.body);
-
   const { subscriberId, status } = req.body;
-
-  if(!subscriberId){
-   return res.json({
-    statusCode:"E1001",
-    statusDetail:"Missing subscriberId"
-   });
-  }
 
   const msisdn = subscriberId.replace("tel:","");
 
@@ -372,8 +358,6 @@ app.post("/subscription", async (req,res)=>{
     { upsert:true }
    );
 
-   console.log("User Subscribed:", msisdn);
-
   }
 
   if(status === "UNREGISTERED"){
@@ -382,8 +366,6 @@ app.post("/subscription", async (req,res)=>{
     { msisdn },
     { status:"inactive" }
    );
-
-   console.log("User Unsubscribed:", msisdn);
 
   }
 
@@ -394,8 +376,6 @@ app.post("/subscription", async (req,res)=>{
 
  }
  catch(err){
-
-  console.log("Subscription Error:", err);
 
   res.json({
    statusCode:"E1000",
