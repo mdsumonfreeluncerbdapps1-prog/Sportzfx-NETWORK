@@ -12,13 +12,13 @@ const { getSession } = require("./sessions/ussdSession");
 const app = express();
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended:true }));
 
 connectDB();
 
 
 // ======================
-// SHOW MATCH MENU
+// MATCH LIST MENU
 // ======================
 
 function showMatches(session){
@@ -31,7 +31,7 @@ function showMatches(session){
  let menu = `CON ${session.title}\n\n`;
 
  if(list.length === 0){
-  return "CON No matches\n\n0 Back";
+  return "CON No matches available\n\n0 Back";
  }
 
  list.forEach((m,i)=>{
@@ -42,6 +42,42 @@ function showMatches(session){
  menu += `\n0 Back`;
 
  return menu;
+
+}
+
+
+// ======================
+// SCORE API
+// ======================
+
+async function getScore(){
+
+ try{
+
+  const api = await axios.get(
+   "https://cricbuzz.autoaiassistant.com/sms.php?message",
+   { timeout:5000 }
+  );
+
+  if(!api.data){
+   return "Score unavailable";
+  }
+
+  const clean = api.data
+   .replace(/<[^>]+>/g,"")
+   .replace(/\r/g,"")
+   .trim();
+
+  return clean || "Score unavailable";
+
+ }
+ catch(err){
+
+  console.log("Score API error:",err.message);
+
+  return "Score unavailable";
+
+ }
 
 }
 
@@ -65,7 +101,7 @@ app.post("/ussd", async (req,res)=>{
   const inputs = text.split("*");
   const lastInput = inputs[inputs.length-1];
 
-  const user = await Subscriber.findOne({ msisdn: phone });
+  const user = await Subscriber.findOne({ msisdn:phone });
 
   let response = "";
 
@@ -114,9 +150,7 @@ app.post("/ussd", async (req,res)=>{
   }
 
   if(text === "1*1" && (!user || user.status !== "active")){
-
    return res.send("END Subscription request sent");
-
   }
 
   if(text === "1*2"){
@@ -129,7 +163,6 @@ app.post("/ussd", async (req,res)=>{
   // ======================
 
   if(!user || user.status !== "active"){
-
    return res.send("END Please subscribe first");
   }
 
@@ -145,24 +178,10 @@ app.post("/ussd", async (req,res)=>{
    const match = session.matches[index];
 
    if(!match){
-    return res.send("CON Invalid option\n0 Back");
+    return res.send("CON Invalid option\n\n0 Back");
    }
 
-   let score = "Live score unavailable";
-
-   try{
-
-    const api = await axios.get(
-     "https://cricbuzz.autoaiassistant.com/sms.php?message"
-    );
-
-    if(api.data){
-     score = api.data;
-    }
-
-   }catch(err){
-    console.log("Score API error:",err.message);
-   }
+   const score = await getScore();
 
    return res.send(
     "CON "+parseMatchTitle(match)+"\n\n"+
@@ -239,7 +258,7 @@ app.post("/ussd", async (req,res)=>{
   else if(lastInput === "4"){
 
    await Subscriber.updateOne(
-    { msisdn: phone },
+    { msisdn:phone },
     { status:"inactive" }
    );
 
@@ -343,6 +362,7 @@ app.post("/subscription", async (req,res)=>{
 app.get("/",(req,res)=>{
  res.send("Sportzfx Cricket Service Running");
 });
+
 
 const PORT = process.env.PORT || config.server.port || 10000;
 
