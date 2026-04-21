@@ -56,12 +56,7 @@ function showMatches(session){
  const list = matches.slice(start,end);
 
  if(list.length === 0){
-
-  return (
-   "CON No More Matches\n\n"+
-   "0 Back"
-  );
-
+  return "CON No More Matches\n\n0 Back";
  }
 
  let menu = `CON ${session.title}\n\n`;
@@ -105,7 +100,6 @@ app.post("/ussd", async (req,res)=>{
   let response = "";
 
 
-
   // ======================
   // SESSION START
   // ======================
@@ -122,6 +116,28 @@ app.post("/ussd", async (req,res)=>{
     );
 
    }
+
+   return res.send(
+    "CON Sportzfx Cricket\n\n"+
+    "1 Live Matches\n"+
+    "2 Upcoming Matches\n"+
+    "3 Recent Matches\n"+
+    "4 Unsubscribe\n"+
+    "0 Exit"
+   );
+
+  }
+
+
+
+  // ======================
+  // BACK TO MAIN MENU (FIX)
+  // ======================
+
+  if(lastInput === "0" && session.menu === "matches"){
+
+   session.page = 0;
+   session.menu = null;
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
@@ -248,7 +264,6 @@ app.post("/ussd", async (req,res)=>{
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
 
    const index = (session.page * 5) + (Number(lastInput) - 1);
-
    const match = session.matches[index];
 
    if(!match){
@@ -271,7 +286,6 @@ app.post("/ussd", async (req,res)=>{
   else if(lastInput === "9" && session.menu === "matches"){
 
    session.page += 1;
-
    response = showMatches(session);
 
   }
@@ -297,26 +311,6 @@ app.post("/ussd", async (req,res)=>{
 
 
 
-  // ======================
-  // BACK TO MAIN MENU
-  // ======================
-
-  else if(lastInput === "0"){
-
-   session.page = 0;
-   session.menu = null;
-
-   return res.send(
-    "CON Sportzfx Cricket\n\n"+
-    "1 Live Matches\n"+
-    "2 Upcoming Matches\n"+
-    "3 Recent Matches\n"+
-    "4 Unsubscribe\n"+
-    "0 Exit"
-   );
-
-  }
-
   res.send(response);
 
  }
@@ -333,7 +327,6 @@ app.post("/ussd", async (req,res)=>{
  }
 
 });
-
 
 
 // ======================
@@ -387,7 +380,6 @@ app.post("/subscription", async (req,res)=>{
  }
 
 });
-
 
 
 app.get("/",(req,res)=>{
