@@ -13,8 +13,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-console.log("Starting Sportzfx server...");
-
 connectDB();
 
 
@@ -50,27 +48,29 @@ async function getMatchesSafe(type){
 
 function showMatches(session){
 
+ const matches = session.matches || [];
+
  const start = session.page * 5;
  const end = start + 5;
 
- const list = (session.matches || []).slice(start,end);
+ const list = matches.slice(start,end);
+
+ if(list.length === 0){
+
+  return (
+   "CON No More Matches\n\n"+
+   "0 Back"
+  );
+
+ }
 
  let menu = `CON ${session.title}\n\n`;
 
- if(list.length === 0){
-  return (
-   "CON No Matches Available\n\n"+
-   "Please try again later.\n\n"+
-   "0 Back"
-  );
- }
-
  list.forEach((m,i)=>{
-  const number = i + 1;
-  menu += `${number}. ${parseMatchTitle(m)}\n`;
+  menu += `${i+1}. ${parseMatchTitle(m)}\n`;
  });
 
- if(end < (session.matches || []).length){
+ if(end < matches.length){
   menu += `\n9 More Matches`;
  }
 
@@ -248,6 +248,7 @@ app.post("/ussd", async (req,res)=>{
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
 
    const index = (session.page * 5) + (Number(lastInput) - 1);
+
    const match = session.matches[index];
 
    if(!match){
@@ -256,7 +257,7 @@ app.post("/ussd", async (req,res)=>{
 
    return res.send(
     "CON "+ parseMatchTitle(match) +
-    "\n\nLive score coming soon.\n\n0 Back"
+    "\n\nScore update coming soon.\n\n0 Back"
    );
 
   }
@@ -270,6 +271,7 @@ app.post("/ussd", async (req,res)=>{
   else if(lastInput === "9" && session.menu === "matches"){
 
    session.page += 1;
+
    response = showMatches(session);
 
   }
@@ -387,9 +389,6 @@ app.post("/subscription", async (req,res)=>{
 });
 
 
-// ======================
-// HEALTH CHECK
-// ======================
 
 app.get("/",(req,res)=>{
  res.send("Sportzfx Network Running");
