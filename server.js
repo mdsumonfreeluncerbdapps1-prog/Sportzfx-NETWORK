@@ -14,13 +14,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-console.log("Starting Sportzfx server...");
-
 connectDB();
 
 
 // ======================
-// MATCH LIST MENU
+// SHOW MATCH MENU
 // ======================
 
 function showMatches(session){
@@ -33,7 +31,7 @@ function showMatches(session){
  let menu = `CON ${session.title}\n\n`;
 
  if(list.length === 0){
-  return "CON No Matches\n\n0 Back";
+  return "CON No matches\n\n0 Back";
  }
 
  list.forEach((m,i)=>{
@@ -90,10 +88,10 @@ app.post("/ussd", async (req,res)=>{
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
-    "1 Live\n"+
-    "2 Upcoming\n"+
-    "3 Recent\n"+
-    "4 Unsub\n"+
+    "1 Live Matches\n"+
+    "2 Upcoming Matches\n"+
+    "3 Recent Results\n"+
+    "4 Unsubscribe\n"+
     "0 Exit"
    );
 
@@ -107,8 +105,8 @@ app.post("/ussd", async (req,res)=>{
   if(text === "1" && (!user || user.status !== "active")){
 
    return res.send(
-    "CON Sportzfx Cricket\n\n"+
-    "Tk2.67/day\n\n"+
+    "CON Cricket Service\n\n"+
+    "Daily Charge Tk 2.67\n\n"+
     "1 Confirm\n"+
     "2 Cancel"
    );
@@ -127,15 +125,12 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // BLOCK NON-SUBSCRIBER
+  // BLOCK NON SUBSCRIBER
   // ======================
 
   if(!user || user.status !== "active"){
 
-   return res.send(
-    "END Please subscribe\nDial *213*15755#"
-   );
-
+   return res.send("END Please subscribe first");
   }
 
 
@@ -143,22 +138,22 @@ app.post("/ussd", async (req,res)=>{
   // MATCH SELECT
   // ======================
 
-  if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
+  if(session.menu === "matches" && Number(lastInput)>=1 && Number(lastInput)<=5){
 
-   const index = (session.page * 5) + (Number(lastInput) - 1);
+   const index = (session.page*5)+(Number(lastInput)-1);
 
    const match = session.matches[index];
 
    if(!match){
-    return res.send("CON Invalid\n0 Back");
+    return res.send("CON Invalid option\n0 Back");
    }
 
-   let score = "Score loading...";
+   let score = "Live score unavailable";
 
    try{
 
     const api = await axios.get(
-     "https://cricbuzz.autoaiassistant.com/sms.php?message=1"
+     "https://cricbuzz.autoaiassistant.com/sms.php?message"
     );
 
     if(api.data){
@@ -179,7 +174,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // LIVE
+  // LIVE MATCHES
   // ======================
 
   if(text === "1" && session.menu !== "matches"){
@@ -187,7 +182,7 @@ app.post("/ussd", async (req,res)=>{
    session.matches = await fetchMatches("live");
    session.page = 0;
    session.menu = "matches";
-   session.title = "Live";
+   session.title = "Live Matches";
 
    response = showMatches(session);
 
@@ -195,7 +190,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // UPCOMING
+  // UPCOMING MATCHES
   // ======================
 
   else if(text === "2"){
@@ -203,7 +198,7 @@ app.post("/ussd", async (req,res)=>{
    session.matches = await fetchMatches("upcoming");
    session.page = 0;
    session.menu = "matches";
-   session.title = "Upcoming";
+   session.title = "Upcoming Matches";
 
    response = showMatches(session);
 
@@ -211,7 +206,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // RECENT
+  // RECENT MATCHES
   // ======================
 
   else if(text === "3"){
@@ -219,7 +214,7 @@ app.post("/ussd", async (req,res)=>{
    session.matches = await fetchMatches("recent");
    session.page = 0;
    session.menu = "matches";
-   session.title = "Recent";
+   session.title = "Recent Results";
 
    response = showMatches(session);
 
@@ -248,7 +243,7 @@ app.post("/ussd", async (req,res)=>{
     { status:"inactive" }
    );
 
-   return res.send("END Unsubscribed");
+   return res.send("END You are unsubscribed");
 
   }
 
@@ -263,10 +258,10 @@ app.post("/ussd", async (req,res)=>{
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
-    "1 Live\n"+
-    "2 Upcoming\n"+
-    "3 Recent\n"+
-    "4 Unsub\n"+
+    "1 Live Matches\n"+
+    "2 Upcoming Matches\n"+
+    "3 Recent Results\n"+
+    "4 Unsubscribe\n"+
     "0 Exit"
    );
 
@@ -289,7 +284,7 @@ app.post("/ussd", async (req,res)=>{
 
 
 // ======================
-// BDApps CALLBACK
+// BDAPPS CALLBACK
 // ======================
 
 app.post("/subscription", async (req,res)=>{
@@ -342,13 +337,15 @@ app.post("/subscription", async (req,res)=>{
 
 
 // ======================
+// HEALTH CHECK
+// ======================
 
 app.get("/",(req,res)=>{
- res.send("Sportzfx Network Running");
+ res.send("Sportzfx Cricket Service Running");
 });
 
 const PORT = process.env.PORT || config.server.port || 10000;
 
 app.listen(PORT,()=>{
- console.log("Sportzfx server running on port",PORT);
+ console.log("Server running on port",PORT);
 });
