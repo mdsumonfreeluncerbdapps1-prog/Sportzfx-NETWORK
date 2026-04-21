@@ -16,6 +16,15 @@ connectDB();
 
 
 // ======================
+// ROOT CHECK (NEW)
+// ======================
+
+app.get("/", (req, res) => {
+ res.send("Sportzfx BD Robi Airtel Service Active 🇧🇩✅✅");
+});
+
+
+// ======================
 // SESSION STORE (TTL)
 // ======================
 
@@ -185,8 +194,6 @@ app.post("/ussd",async(req,res)=>{
   let response="";
 
 
-  // SESSION START
-
   if(text===""){
 
    if(!user||user.status!=="active"){
@@ -205,14 +212,10 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  // EXIT
-
   if(text==="0"){
    return res.send("END Thank you for using Sportzfx Cricket");
   }
 
-
-  // SUBSCRIBE
 
   if(text==="5"&&(!user||user.status!=="active")){
 
@@ -236,8 +239,6 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  // NON SUBSCRIBER
-
   if(!user||user.status!=="active"){
 
    return res.send(
@@ -246,8 +247,6 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
-
-  // BACK
 
   if(lastInput==="0"&&session.menu==="matches"){
 
@@ -260,8 +259,6 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
-
-  // LIVE
 
   if(text==="1"){
 
@@ -276,8 +273,6 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  // UPCOMING
-
   else if(text==="2"){
 
    session.matches=await getMatchesSafe("upcoming");
@@ -291,8 +286,6 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  // RECENT
-
   else if(text==="3"){
 
    session.matches=await getMatchesSafe("recent");
@@ -305,8 +298,6 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
-
-  // MATCH DETAILS
 
   else if(session.menu==="matches"&&Number(lastInput)>=1&&Number(lastInput)<=5){
 
@@ -333,8 +324,6 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
-
-  // REFRESH
 
   else if(lastInput==="1"){
 
@@ -363,8 +352,6 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  // PAGINATION
-
   else if(lastInput==="9"&&session.menu==="matches"){
 
    if((session.page+1)*5<session.matches.length){
@@ -375,8 +362,6 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
-
-  // UNSUBSCRIBE
 
   else if(lastInput==="4"){
 
