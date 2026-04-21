@@ -1,5 +1,6 @@
 const express = require("express");
 const config = require("./config.json");
+const axios = require("axios");
 
 const connectDB = require("./database/mongodb");
 const Subscriber = require("./models/subscriber");
@@ -207,7 +208,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // MATCH DETAILS
+  // MATCH DETAILS + API SCORE
   // ======================
 
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
@@ -219,8 +220,26 @@ app.post("/ussd", async (req,res)=>{
     return res.send("CON Invalid selection\n\n0 Back");
    }
 
+   let score = "Score updating...";
+
+   try{
+
+    const api = await axios.get(
+     "https://cricbuzz.autoaiassistant.com/sms.php?message=1"
+    );
+
+    if(api.data){
+     score = api.data;
+    }
+
+   }catch(err){
+    console.log("Score API error:", err.message);
+   }
+
    return res.send(
-    "END "+ parseMatchTitle(match) + "\n\nLive score coming soon."
+    "CON "+ parseMatchTitle(match) + "\n\n"+
+    score + "\n\n"+
+    "0 Back"
    );
 
   }
@@ -257,13 +276,14 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // BACK TO MAIN MENU
+  // BACK
   // ======================
 
   else if(lastInput === "0"){
 
-   session.page = 0;
-   session.menu = null;
+   if(session.menu === "matches"){
+    return res.send(showMatches(session));
+   }
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
