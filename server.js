@@ -21,24 +21,16 @@ connectDB();
 // ======================
 
 async function getMatchesSafe(type){
-
  try{
-
   const matches = await fetchMatches(type);
-
   if(!matches || !Array.isArray(matches)){
    return [];
   }
-
   return matches;
-
  }catch(err){
-
   console.log("Match API error:",err.message);
   return [];
-
  }
-
 }
 
 
@@ -49,7 +41,6 @@ async function getMatchesSafe(type){
 function showMatches(session){
 
  const matches = session.matches || [];
-
  const start = session.page * 5;
  const end = start + 5;
 
@@ -77,6 +68,22 @@ function showMatches(session){
 
 
 // ======================
+// MAIN MENU
+// ======================
+
+function mainMenu(){
+ return (
+  "CON Sportzfx Cricket\n\n"+
+  "1 Live Matches\n"+
+  "2 Upcoming Matches\n"+
+  "3 Recent Matches\n"+
+  "4 Unsubscribe\n"+
+  "0 Exit"
+ );
+}
+
+
+// ======================
 // USSD ENDPOINT
 // ======================
 
@@ -100,6 +107,7 @@ app.post("/ussd", async (req,res)=>{
   let response = "";
 
 
+
   // ======================
   // SESSION START
   // ======================
@@ -117,21 +125,14 @@ app.post("/ussd", async (req,res)=>{
 
    }
 
-   return res.send(
-    "CON Sportzfx Cricket\n\n"+
-    "1 Live Matches\n"+
-    "2 Upcoming Matches\n"+
-    "3 Recent Matches\n"+
-    "4 Unsubscribe\n"+
-    "0 Exit"
-   );
+   return res.send(mainMenu());
 
   }
 
 
 
   // ======================
-  // BACK TO MAIN MENU (FIX)
+  // BACK
   // ======================
 
   if(lastInput === "0" && session.menu === "matches"){
@@ -139,14 +140,7 @@ app.post("/ussd", async (req,res)=>{
    session.page = 0;
    session.menu = null;
 
-   return res.send(
-    "CON Sportzfx Cricket\n\n"+
-    "1 Live Matches\n"+
-    "2 Upcoming Matches\n"+
-    "3 Recent Matches\n"+
-    "4 Unsubscribe\n"+
-    "0 Exit"
-   );
+   return res.send(mainMenu());
 
   }
 
@@ -303,13 +297,19 @@ app.post("/ussd", async (req,res)=>{
     { status: "inactive" }
    );
 
-   return res.send(
-    "END You have successfully unsubscribed."
-   );
+   return res.send("END You have successfully unsubscribed.");
 
   }
 
 
+
+  // ======================
+  // INVALID INPUT FIX
+  // ======================
+
+  if(!response){
+   response = "CON Invalid selection\n\n0 Back";
+  }
 
   res.send(response);
 
@@ -327,6 +327,7 @@ app.post("/ussd", async (req,res)=>{
  }
 
 });
+
 
 
 // ======================
