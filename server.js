@@ -162,7 +162,7 @@ app.post("/ussd", async (req,res)=>{
   // LIVE MATCHES
   // ======================
 
-  if(lastInput === "1"){
+  if(text === "1"){
 
    session.matches = await fetchMatches("live");
    session.page = 0;
@@ -173,11 +173,12 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
   // ======================
   // UPCOMING MATCHES
   // ======================
 
-  else if(lastInput === "2"){
+  else if(text === "2"){
 
    session.matches = await fetchMatches("upcoming");
    session.page = 0;
@@ -188,11 +189,12 @@ app.post("/ussd", async (req,res)=>{
 
   }
 
+
   // ======================
   // RECENT MATCHES
   // ======================
 
-  else if(lastInput === "3"){
+  else if(text === "3"){
 
    session.matches = await fetchMatches("recent");
    session.page = 0;
