@@ -6,7 +6,6 @@ const Subscriber = require("./models/subscriber");
 
 const { fetchMatches } = require("./services/cricketApi");
 const { parseMatchTitle } = require("./utils/parser");
-const { getSession } = require("./sessions/ussdSession");
 
 const app = express();
 
@@ -17,13 +16,57 @@ connectDB();
 
 
 // ======================
-// API CACHE (10 sec)
+// SESSION STORE (TTL)
+// ======================
+
+const sessions = {};
+const SESSION_TTL = 5 * 60 * 1000;
+
+function getSession(sessionId){
+
+ if(!sessions[sessionId]){
+
+  sessions[sessionId] = {
+   page:0,
+   matches:[],
+   menu:null,
+   selectedMatch:null,
+   lastAccess:Date.now()
+  };
+
+ }
+
+ sessions[sessionId].lastAccess = Date.now();
+
+ return sessions[sessionId];
+}
+
+
+// auto clean session
+setInterval(()=>{
+
+ const now = Date.now();
+
+ Object.keys(sessions).forEach(id=>{
+
+  if(now - sessions[id].lastAccess > SESSION_TTL){
+   delete sessions[id];
+  }
+
+ });
+
+},60000);
+
+
+
+// ======================
+// API CACHE
 // ======================
 
 const matchCache = {
- live: { data: [], time: 0 },
- upcoming: { data: [], time: 0 },
- recent: { data: [], time: 0 }
+ live:{data:[],time:0},
+ upcoming:{data:[],time:0},
+ recent:{data:[],time:0}
 };
 
 const CACHE_TIME = 10000;
@@ -50,8 +93,8 @@ async function getMatchesSafe(type){
   }
 
   matchCache[type] = {
-   data: matches,
-   time: now
+   data:matches,
+   time:now
   };
 
   return matches;
@@ -61,11 +104,12 @@ async function getMatchesSafe(type){
   console.log("Match API error:",err.message);
   return [];
  }
+
 }
 
 
 // ======================
-// MATCH LIST MENU
+// MATCH LIST
 // ======================
 
 function showMatches(session){
@@ -73,17 +117,13 @@ function showMatches(session){
  const matches = session.matches || [];
 
  if(matches.length === 0){
-  return "CON No matches available\n\n0 Back";
+  return "CON Live score unavailable now\nPlease try again later\n\n0 Back";
  }
 
  const start = session.page * 5;
  const end = start + 5;
 
  const list = matches.slice(start,end);
-
- if(list.length === 0){
-  return "CON No More Matches\n\n0 Back";
- }
 
  let menu = `CON ${session.title}\n\n`;
 
@@ -99,6 +139,7 @@ function showMatches(session){
  menu += `\n0 Back`;
 
  return menu;
+
 }
 
 
@@ -124,37 +165,35 @@ function mainMenu(){
 // USSD ENDPOINT
 // ======================
 
-app.post("/ussd", async (req,res)=>{
+app.post("/ussd",async(req,res)=>{
 
  try{
 
   res.set("Content-Type","text/plain");
 
-  const sessionId = req.body.sessionId;
-  const phone = req.body.phoneNumber || req.body.msisdn || "";
-  const text = req.body.text || "";
+  const sessionId=req.body.sessionId;
+  const phone=req.body.phoneNumber||req.body.msisdn||"";
+  const text=req.body.text||"";
 
-  const session = getSession(sessionId);
+  const session=getSession(sessionId);
 
-  const inputs = text.split("*");
-  const lastInput = inputs[inputs.length - 1];
+  const inputs=text.split("*");
+  const lastInput=inputs[inputs.length-1];
 
-  const user = await Subscriber.findOne({ msisdn: phone }).lean();
+  const user=await Subscriber.findOne({msisdn:phone}).lean();
 
-  let response = "";
+  let response="";
 
 
-  // ======================
   // SESSION START
-  // ======================
 
-  if(text === ""){
+  if(text===""){
 
-   if(!user || user.status !== "active"){
+   if(!user||user.status!=="active"){
 
     return res.send(
      "CON Welcome to Sportzfx Cricket\n\n"+
-     "Get live cricket scores and updates.\n\n"+
+     "Get live cricket scores and updates\n\n"+
      "5 Subscribe\n"+
      "0 Exit"
     );
@@ -162,23 +201,20 @@ app.post("/ussd", async (req,res)=>{
    }
 
    return res.send(mainMenu());
+
   }
 
 
-  // ======================
   // EXIT
-  // ======================
 
-  if(text === "0"){
-   return res.send("END Thank you for using Sportzfx Cricket.");
+  if(text==="0"){
+   return res.send("END Thank you for using Sportzfx Cricket");
   }
 
 
-  // ======================
-  // SUBSCRIBE FLOW
-  // ======================
+  // SUBSCRIBE
 
-  if(text === "5" && (!user || user.status !== "active")){
+  if(text==="5"&&(!user||user.status!=="active")){
 
    return res.send(
     "CON Confirm Subscription\n\n"+
@@ -188,188 +224,174 @@ app.post("/ussd", async (req,res)=>{
     "2 Cancel\n"+
     "0 Back"
    );
+
   }
 
-  if(text === "5*1"){
-   return res.send(
-    "END Subscription request sent.\nConfirmation SMS will follow."
-   );
+  if(text==="5*1"){
+   return res.send("END Subscription request sent\nConfirmation SMS will follow");
   }
 
-  if(text === "5*2"){
+  if(text==="5*2"){
    return res.send("END Subscription cancelled");
   }
 
 
-  // ======================
-  // BLOCK NON SUBSCRIBERS
-  // ======================
+  // NON SUBSCRIBER
 
-  if(!user || user.status !== "active"){
+  if(!user||user.status!=="active"){
 
    return res.send(
-    "END Please subscribe first.\n\nDial *213*15755#"
+    "END Please subscribe first\n\nDial *213*15755#"
    );
 
   }
 
 
-  // ======================
   // BACK
-  // ======================
 
-  if(lastInput === "0" && session.menu === "matches"){
+  if(lastInput==="0"&&session.menu==="matches"){
 
-   session.page = 0;
-   session.matches = [];
-   session.menu = null;
-   session.selectedMatch = null;
+   session.page=0;
+   session.matches=[];
+   session.menu=null;
+   session.selectedMatch=null;
 
    return res.send(mainMenu());
+
   }
 
 
-  // ======================
-  // LIVE MATCHES
-  // ======================
+  // LIVE
 
-  if(text === "1"){
+  if(text==="1"){
 
-   session.matches = await getMatchesSafe("live");
+   session.matches=await getMatchesSafe("live");
 
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Live Matches";
+   session.page=0;
+   session.menu="matches";
+   session.title="Live Matches";
 
-   response = showMatches(session);
+   response=showMatches(session);
+
   }
 
 
-  // ======================
-  // UPCOMING MATCHES
-  // ======================
+  // UPCOMING
 
-  else if(text === "2"){
+  else if(text==="2"){
 
-   session.matches = await getMatchesSafe("upcoming");
+   session.matches=await getMatchesSafe("upcoming");
 
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Upcoming Matches";
+   session.page=0;
+   session.menu="matches";
+   session.title="Upcoming Matches";
 
-   response = showMatches(session);
+   response=showMatches(session);
+
   }
 
 
-  // ======================
-  // RECENT MATCHES
-  // ======================
+  // RECENT
 
-  else if(text === "3"){
+  else if(text==="3"){
 
-   session.matches = await getMatchesSafe("recent");
+   session.matches=await getMatchesSafe("recent");
 
-   session.page = 0;
-   session.menu = "matches";
-   session.title = "Recent Matches";
+   session.page=0;
+   session.menu="matches";
+   session.title="Recent Matches";
 
-   response = showMatches(session);
+   response=showMatches(session);
+
   }
 
 
-  // ======================
   // MATCH DETAILS
-  // ======================
 
-  else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
+  else if(session.menu==="matches"&&Number(lastInput)>=1&&Number(lastInput)<=5){
 
-   session.selectedMatch = (session.page * 5) + (Number(lastInput) - 1);
+   session.selectedMatch=(session.page*5)+(Number(lastInput)-1);
 
-   const match = session.matches[session.selectedMatch];
+   const match=session.matches[session.selectedMatch];
 
    if(!match){
     return res.send("CON Invalid selection\n\n0 Back");
    }
 
-   const title = parseMatchTitle(match).substring(0,30);
-   const team1 = match.team1Score || "";
-   const team2 = match.team2Score || "";
-   const status = match.status || "Score updating...";
+   const title=parseMatchTitle(match).substring(0,30);
+   const team1=match.team1Score||"";
+   const team2=match.team2Score||"";
+   const status=match.status||"Score updating";
 
    return res.send(
-    "CON " + title +
-    "\n\n" + team1 +
-    "\n" + team2 +
-    "\n\n" + status +
+    "CON "+title+
+    "\n\n"+team1+
+    "\n"+team2+
+    "\n\n"+status+
     "\n\n1 Refresh\n0 Back"
    );
+
   }
 
 
-  // ======================
-  // REFRESH SCORE
-  // ======================
+  // REFRESH
 
-  else if(lastInput === "1"){
+  else if(lastInput==="1"){
 
-   if(session.selectedMatch === null || session.selectedMatch === undefined){
+   if(session.selectedMatch===null){
     return res.send("CON Session expired\n\n0 Back");
    }
 
-   const matches = await getMatchesSafe("live");
+   const matches=await getMatchesSafe("live");
 
-   const match = matches[session.selectedMatch];
+   const match=matches[session.selectedMatch];
 
    if(!match){
     return res.send("CON Score unavailable\n\n0 Back");
    }
 
-   const title = parseMatchTitle(match).substring(0,30);
-   const team1 = match.team1Score || "";
-   const team2 = match.team2Score || "";
-   const status = match.status || "Score updating...";
+   const title=parseMatchTitle(match).substring(0,30);
 
    return res.send(
-    "CON " + title +
-    "\n\n" + team1 +
-    "\n" + team2 +
-    "\n\n" + status +
+    "CON "+title+
+    "\n\n"+(match.team1Score||"")+
+    "\n"+(match.team2Score||"")+
+    "\n\n"+(match.status||"Score updating")+
     "\n\n1 Refresh\n0 Back"
    );
+
   }
 
 
-  // ======================
   // PAGINATION
-  // ======================
 
-  else if(lastInput === "9" && session.menu === "matches"){
+  else if(lastInput==="9"&&session.menu==="matches"){
 
-   if((session.page + 1) * 5 < session.matches.length){
-    session.page += 1;
+   if((session.page+1)*5<session.matches.length){
+    session.page+=1;
    }
 
-   response = showMatches(session);
+   response=showMatches(session);
+
   }
 
 
-  // ======================
   // UNSUBSCRIBE
-  // ======================
 
-  else if(lastInput === "4"){
+  else if(lastInput==="4"){
 
    await Subscriber.updateOne(
-    { msisdn: phone },
-    { status: "inactive" }
+    {msisdn:phone},
+    {status:"inactive"}
    );
 
-   return res.send("END You have successfully unsubscribed.");
+   return res.send("END You have successfully unsubscribed");
+
   }
 
 
   if(!response){
-   response = "CON Invalid selection\n\n0 Back";
+   response="CON Invalid selection\n\n0 Back";
   }
 
   res.send(response);
@@ -381,10 +403,12 @@ app.post("/ussd", async (req,res)=>{
 
   res.send(
    "CON Service temporarily unavailable\n"+
-   "Please try again later.\n\n"+
+   "Please try again later\n\n"+
    "0 Back"
   );
+
  }
+
 });
 
 
@@ -392,7 +416,7 @@ app.post("/ussd", async (req,res)=>{
 // SERVER START
 // ======================
 
-const PORT = config.port || 10000;
+const PORT=config.port||10000;
 
 app.listen(PORT,()=>{
  console.log("USSD server running on port",PORT);
