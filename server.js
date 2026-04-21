@@ -34,15 +34,15 @@ function showMatches(session){
 
  if(list.length === 0){
   return (
-   "CON No Matches Available\n\n"+
-   "Please try again later.\n"+
+   "CON No Matches\n\n"+
+   "Try later\n"+
    "0 Back"
   );
  }
 
  list.forEach((m,i)=>{
   const number = i + 1;
-  menu += `${number}. ${parseMatchTitle(m)}\n`;
+  menu += `${number} ${parseMatchTitle(m)}\n`;
  });
 
  if(end < (session.matches || []).length){
@@ -95,8 +95,7 @@ app.post("/ussd", async (req,res)=>{
    if(!user || user.status !== "active"){
 
     return res.send(
-     "CON Welcome to Sportzfx Cricket\n\n"+
-     "Get live cricket scores and updates.\n\n"+
+     "CON Sportzfx Cricket\n\n"+
      "1 Subscribe\n"+
      "0 Exit"
     );
@@ -105,10 +104,10 @@ app.post("/ussd", async (req,res)=>{
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
-    "1 Live Matches\n"+
-    "2 Upcoming Matches\n"+
-    "3 Recent Matches\n"+
-    "4 Unsubscribe\n"+
+    "1 Live\n"+
+    "2 Upcoming\n"+
+    "3 Recent\n"+
+    "4 Unsub\n"+
     "0 Exit"
    );
 
@@ -122,9 +121,8 @@ app.post("/ussd", async (req,res)=>{
   if(text === "1" && (!user || user.status !== "active")){
 
    return res.send(
-    "CON Confirm Subscription\n\n"+
-    "Sportzfx Cricket Service\n"+
-    "Daily charge Tk 2.67\n\n"+
+    "CON Sportzfx Cricket\n\n"+
+    "Tk2.67/day\n\n"+
     "1 Confirm\n"+
     "2 Cancel"
    );
@@ -136,13 +134,13 @@ app.post("/ussd", async (req,res)=>{
    console.log("Subscription request:", phone);
 
    return res.send(
-    "END Subscription request sent.\nConfirmation SMS will follow."
+    "END Subscription request sent"
    );
 
   }
 
   if(text === "1*2"){
-   return res.send("END Subscription cancelled");
+   return res.send("END Cancelled");
   }
 
 
@@ -153,7 +151,7 @@ app.post("/ussd", async (req,res)=>{
   if(!user || user.status !== "active"){
 
    return res.send(
-    "END Please subscribe first.\n\nDial *213*15755#"
+    "END Please subscribe\nDial *213*15755#"
    );
 
   }
@@ -168,7 +166,7 @@ app.post("/ussd", async (req,res)=>{
    session.matches = await fetchMatches("live");
    session.page = 0;
    session.menu = "matches";
-   session.title = "Live Matches";
+   session.title = "Live";
 
    response = showMatches(session);
 
@@ -184,7 +182,7 @@ app.post("/ussd", async (req,res)=>{
    session.matches = await fetchMatches("upcoming");
    session.page = 0;
    session.menu = "matches";
-   session.title = "Upcoming Matches";
+   session.title = "Upcoming";
 
    response = showMatches(session);
 
@@ -200,7 +198,7 @@ app.post("/ussd", async (req,res)=>{
    session.matches = await fetchMatches("recent");
    session.page = 0;
    session.menu = "matches";
-   session.title = "Recent Matches";
+   session.title = "Recent";
 
    response = showMatches(session);
 
@@ -208,7 +206,7 @@ app.post("/ussd", async (req,res)=>{
 
 
   // ======================
-  // MATCH DETAILS + API SCORE
+  // MATCH DETAILS + SCORE
   // ======================
 
   else if(session.menu === "matches" && Number(lastInput) >= 1 && Number(lastInput) <= 5){
@@ -217,10 +215,10 @@ app.post("/ussd", async (req,res)=>{
    const match = session.matches[index];
 
    if(!match){
-    return res.send("CON Invalid selection\n\n0 Back");
+    return res.send("CON Invalid\n0 Back");
    }
 
-   let score = "Score updating...";
+   let score = "Score loading...";
 
    try{
 
@@ -269,7 +267,7 @@ app.post("/ussd", async (req,res)=>{
    );
 
    return res.send(
-    "END You have successfully unsubscribed."
+    "END Unsubscribed"
    );
 
   }
@@ -287,10 +285,10 @@ app.post("/ussd", async (req,res)=>{
 
    return res.send(
     "CON Sportzfx Cricket\n\n"+
-    "1 Live Matches\n"+
-    "2 Upcoming Matches\n"+
-    "3 Recent Matches\n"+
-    "4 Unsubscribe\n"+
+    "1 Live\n"+
+    "2 Upcoming\n"+
+    "3 Recent\n"+
+    "4 Unsub\n"+
     "0 Exit"
    );
 
@@ -304,9 +302,7 @@ app.post("/ussd", async (req,res)=>{
   console.log("USSD ERROR:", err.message);
 
   res.send(
-   "CON Service temporarily unavailable\n"+
-   "Please try again later.\n\n"+
-   "0 Back"
+   "CON Service error\n\n0 Back"
   );
 
  }
@@ -315,7 +311,7 @@ app.post("/ussd", async (req,res)=>{
 
 
 // ======================
-// BDApps Subscription Notify
+// BDApps SUBSCRIPTION CALLBACK
 // ======================
 
 app.post("/subscription", async (req,res)=>{
@@ -347,8 +343,6 @@ app.post("/subscription", async (req,res)=>{
     { upsert:true }
    );
 
-   console.log("User Subscribed:", msisdn);
-
   }
 
   if(status === "UNREGISTERED"){
@@ -358,13 +352,11 @@ app.post("/subscription", async (req,res)=>{
     { status:"inactive" }
    );
 
-   console.log("User Unsubscribed:", msisdn);
-
   }
 
   res.json({
    statusCode:"S1000",
-   statusDetail:"Request was successfully processed"
+   statusDetail:"Success"
   });
 
  }
