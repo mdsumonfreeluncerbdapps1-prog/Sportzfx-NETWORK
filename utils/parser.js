@@ -1,18 +1,29 @@
+function shortTeam(name){
+
+ return name
+ .trim()
+ .split(" ")
+ .map(w => w[0])
+ .join("")
+ .substring(0,3)
+ .toUpperCase();
+
+}
+
 function parseMatchTitle(match){
 
- const name = match.match_name || "";
+ const title = match.match_name || "";
 
- const teams = name.match(/([A-Za-z ]+)\s+vs\s+([A-Za-z ]+)/i);
+ const teams = title.match(/(.+?)\s+vs\s+(.+)/i);
 
- if(teams){
-
-  const team1 = teams[1].trim().substring(0,3).toUpperCase();
-  const team2 = teams[2].trim().substring(0,3).toUpperCase();
-
-  return `${team1} v ${team2}`;
+ if(!teams){
+  return "Match";
  }
 
- return "Match";
+ const t1 = shortTeam(teams[1]);
+ const t2 = shortTeam(teams[2]);
+
+ return `${t1} v ${t2}`;
 
 }
 
