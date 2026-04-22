@@ -1,41 +1,116 @@
 const axios = require("axios");
-const config = require("../config.json");
 
-const BASE = "https://developer.bdapps.com";
+const API_BASE = "https://cricbuzz.autoaiassistant.com/sms.php?message=";
 
-async function requestOTP(msisdn){
 
- const payload = {
-  applicationId: config.bdappsAppId,
-  password: config.bdappsPassword,
-  subscriberId: `tel:${msisdn}`,
-  applicationHash: "sportzfx"
- };
+// =========================
+// CACHE STORAGE
+// =========================
 
- const res = await axios.post(`${BASE}/otp/request`,payload,{
-  headers:{ "Content-Type":"application/json"}
- });
+let cache = {
+ live: [],
+ upcoming: [],
+ recent: []
+};
 
- return res.data;
+let lastFetch = {
+ live: 0,
+ upcoming: 0,
+ recent: 0
+};
+
+const CACHE_TIME = 30000;
+
+
+// =========================
+// SMART MATCH PARSER
+// =========================
+
+function parseMatches(text){
+
+ if(!text || typeof text !== "string"){
+  return [];
+ }
+
+ const lines = text.split("\n");
+
+ const matches = [];
+
+ for(let line of lines){
+
+  line = line.trim();
+
+  if(!line) continue;
+
+  // remove numbering like "1. "
+  line = line.replace(/^\d+\.\s*/, "");
+
+  const lower = line.toLowerCase();
+
+  // detect match patterns
+  if(
+   lower.includes(" vs ") ||
+   lower.includes(" v ") ||
+   lower.includes(" - ")
+  ){
+
+   matches.push({
+    match_name: line,
+    score: [],
+    result: ""
+   });
+
+  }
+
+ }
+
+ return matches;
+
 }
 
-async function verifyOTP(referenceNo,otp){
 
- const payload = {
-  applicationId: config.bdappsAppId,
-  password: config.bdappsPassword,
-  referenceNo,
-  otp
- };
+// =========================
+// FETCH MATCHES
+// =========================
 
- const res = await axios.post(`${BASE}/otp/verify`,payload,{
-  headers:{ "Content-Type":"application/json"}
- });
+async function fetchMatches(type){
 
- return res.data;
+ try{
+
+  const now = Date.now();
+
+  // cache check
+  if(cache[type] && (now - lastFetch[type]) < CACHE_TIME){
+   return cache[type];
+  }
+
+  const url = `${API_BASE}${type}`;
+
+  const res = await axios.get(url,{ timeout:4000 });
+
+  const text =
+   typeof res.data === "string"
+    ? res.data
+    : "";
+
+  const matches = parseMatches(text);
+
+  cache[type] = matches;
+  lastFetch[type] = now;
+
+  return matches;
+
+ }catch(err){
+
+  console.log("Cricket API Error:",err.message);
+
+  // fallback cache
+  return cache[type] || [];
+
+ }
+
 }
 
 module.exports = {
- requestOTP,
- verifyOTP
+ fetchMatches
 };
