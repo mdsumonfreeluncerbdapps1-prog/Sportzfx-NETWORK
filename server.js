@@ -16,7 +16,7 @@ connectDB();
 
 
 // ======================
-// ROOT CHECK (NEW)
+// ROOT CHECK
 // ======================
 
 app.get("/", (req, res) => {
@@ -25,13 +25,31 @@ app.get("/", (req, res) => {
 
 
 // ======================
+// HEALTH CHECK (NEW)
+// ======================
+
+app.get("/health", (req,res)=>{
+ res.json({
+  server:"running",
+  uptime:Math.floor(process.uptime()),
+  cache:"active"
+ });
+});
+
+
+// ======================
 // SESSION STORE (TTL)
 // ======================
 
-const sessions = {};
+let sessions = {};
 const SESSION_TTL = 5 * 60 * 1000;
+const MAX_SESSIONS = 5000;
 
 function getSession(sessionId){
+
+ if(Object.keys(sessions).length > MAX_SESSIONS){
+  sessions = {}; // memory protection
+ }
 
  if(!sessions[sessionId]){
 
@@ -57,11 +75,9 @@ setInterval(()=>{
  const now = Date.now();
 
  Object.keys(sessions).forEach(id=>{
-
   if(now - sessions[id].lastAccess > SESSION_TTL){
    delete sessions[id];
   }
-
  });
 
 },60000);
@@ -95,7 +111,13 @@ async function getMatchesSafe(type){
    return matchCache[type].data;
   }
 
-  const matches = await fetchMatches(type);
+  // API timeout protection
+  const apiPromise = fetchMatches(type);
+  const timeout = new Promise((_,reject)=>
+   setTimeout(()=>reject(new Error("API timeout")),3000)
+  );
+
+  const matches = await Promise.race([apiPromise,timeout]);
 
   if(!matches || !Array.isArray(matches)){
    return [];
@@ -175,6 +197,8 @@ function mainMenu(){
 // ======================
 
 app.post("/ussd",async(req,res)=>{
+
+ const startTime = Date.now(); // performance log
 
  try{
 
@@ -380,6 +404,8 @@ app.post("/ussd",async(req,res)=>{
   }
 
   res.send(response);
+
+  console.log("USSD response time:",Date.now()-startTime,"ms");
 
  }
  catch(err){
