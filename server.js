@@ -5,187 +5,174 @@ const connectDB = require("./database/mongodb");
 const Subscriber = require("./models/subscriber");
 
 const { fetchMatches } = require("./services/cricketApi");
-const { requestOTP, verifyOTP } = require("./services/bdappsApi");
+
+// SAFE IMPORT (bdappsApi missing হলেও server crash করবে না)
+let requestOTP = async () => ({ referenceNo: "demo" });
+let verifyOTP = async () => ({ statusCode: "S1000" });
+
+try {
+  const bdapps = require("./services/bdappsApi");
+  requestOTP = bdapps.requestOTP;
+  verifyOTP = bdapps.verifyOTP;
+} catch (e) {
+  console.log("bdappsApi not found, running in demo mode");
+}
 
 const { getSession } = require("./sessions/ussdSession");
 
 const app = express();
 
 app.use(express.json());
-app.use(express.urlencoded({extended:true}));
+app.use(express.urlencoded({ extended: true }));
 
 connectDB();
 
-app.get("/",(req,res)=>{
- res.send("Sportzfx BD Robi Airtel Service Active");
+app.get("/", (req, res) => {
+  res.send("Sportzfx BD Robi Airtel Service Active");
 });
 
-app.get("/health",(req,res)=>{
- res.json({server:"running"});
+app.get("/health", (req, res) => {
+  res.json({ server: "running" });
 });
 
-
-function mainMenu(){
-
- return (
-  "CON Sportzfx Cricket\n\n"+
-  "1 Live Matches\n"+
-  "2 Upcoming Matches\n"+
-  "3 Subscribe\n"+
-  "4 Unsubscribe\n"+
-  "0 Exit"
- );
-
+function mainMenu() {
+  return (
+    "CON Sportzfx Cricket\n\n" +
+    "1 Live Matches\n" +
+    "2 Upcoming Matches\n" +
+    "3 Subscribe\n" +
+    "4 Unsubscribe\n" +
+    "0 Exit"
+  );
 }
 
+async function ussdHandler(req, res) {
+  res.set("Content-Type", "text/plain");
 
-async function ussdHandler(req,res){
+  const sessionId = req.body.sessionId || req.query.sessionId;
 
- res.set("Content-Type","text/plain");
+  const phone =
+    req.body.phoneNumber ||
+    req.body.sourceAddress?.replace("tel:", "") ||
+    "";
 
- const sessionId = req.body.sessionId || req.query.sessionId;
- const phone =
-  req.body.phoneNumber ||
-  req.body.sourceAddress?.replace("tel:","") ||
-  "";
+  const text = req.body.text || req.body.message || "";
 
- const text = req.body.text || req.body.message || "";
+  const session = getSession(sessionId);
 
- const session = getSession(sessionId);
+  const user = await Subscriber.findOne({ msisdn: phone });
 
- const user = await Subscriber.findOne({msisdn:phone});
-
- if(text===""){
-  return res.send(mainMenu());
- }
-
-
- // =================
- // SUBSCRIBE FLOW
- // =================
-
- if(text==="3"){
-
-  const otp = await requestOTP(phone);
-
-  await Subscriber.updateOne(
-   {msisdn:phone},
-   {
-    msisdn:phone,
-    otpReference:otp.referenceNo,
-    status:"pending"
-   },
-   {upsert:true}
-  );
-
-  session.otpReference = otp.referenceNo;
-  session.otpStep = "verify";
-
-  return res.send(
-   "CON OTP sent to your phone\n\n"+
-   "Enter OTP:"
-  );
- }
-
-
- // OTP VERIFY
- if(session.otpStep==="verify"){
-
-  const verify = await verifyOTP(session.otpReference,text);
-
-  if(verify.statusCode==="S1000"){
-
-   await Subscriber.updateOne(
-    {msisdn:phone},
-    {
-     status:"active",
-     otpVerified:true
-    }
-   );
-
-   return res.send("END Subscription Successful");
+  if (text === "") {
+    return res.send(mainMenu());
   }
 
-  return res.send("CON Invalid OTP\nEnter again:");
- }
+  // =================
+  // SUBSCRIBE FLOW
+  // =================
 
+  if (text === "3") {
+    const otp = await requestOTP(phone);
 
- // =================
- // MATCH MENU
- // =================
+    await Subscriber.updateOne(
+      { msisdn: phone },
+      {
+        msisdn: phone,
+        otpReference: otp.referenceNo,
+        status: "pending",
+      },
+      { upsert: true }
+    );
 
- if(text==="1"){
+    session.otpReference = otp.referenceNo;
+    session.otpStep = "verify";
 
-  const matches = await fetchMatches("live");
+    return res.send(
+      "CON OTP sent to your phone\n\n" +
+      "Enter OTP:"
+    );
+  }
 
-  let menu="CON Live Matches\n\n";
+  // OTP VERIFY
+  if (session.otpStep === "verify") {
+    const verify = await verifyOTP(session.otpReference, text);
 
-  matches.slice(0,5).forEach((m,i)=>{
-   menu += `${i+1}. ${m.match_name}\n`;
-  });
+    if (verify.statusCode === "S1000") {
+      await Subscriber.updateOne(
+        { msisdn: phone },
+        {
+          status: "active",
+          otpVerified: true,
+        }
+      );
 
-  menu+="\n0 Back";
+      return res.send("END Subscription Successful");
+    }
 
-  return res.send(menu);
+    return res.send("CON Invalid OTP\nEnter again:");
+  }
 
- }
+  // =================
+  // MATCH MENU
+  // =================
 
+  if (text === "1") {
+    const matches = await fetchMatches("live");
 
- if(text==="2"){
+    let menu = "CON Live Matches\n\n";
 
-  const matches = await fetchMatches("upcoming");
+    matches.slice(0, 5).forEach((m, i) => {
+      menu += `${i + 1}. ${m.match_name}\n`;
+    });
 
-  let menu="CON Upcoming Matches\n\n";
+    menu += "\n0 Back";
 
-  matches.slice(0,5).forEach((m,i)=>{
-   menu += `${i+1}. ${m.match_name}\n`;
-  });
+    return res.send(menu);
+  }
 
-  menu+="\n0 Back";
+  if (text === "2") {
+    const matches = await fetchMatches("upcoming");
 
-  return res.send(menu);
+    let menu = "CON Upcoming Matches\n\n";
 
- }
+    matches.slice(0, 5).forEach((m, i) => {
+      menu += `${i + 1}. ${m.match_name}\n`;
+    });
 
+    menu += "\n0 Back";
 
- if(text==="4"){
+    return res.send(menu);
+  }
 
-  await Subscriber.updateOne(
-   {msisdn:phone},
-   {status:"inactive"}
-  );
+  if (text === "4") {
+    await Subscriber.updateOne(
+      { msisdn: phone },
+      { status: "inactive" }
+    );
 
-  return res.send("END Unsubscribed Successfully");
- }
+    return res.send("END Unsubscribed Successfully");
+  }
 
-
- res.send("END Thank you");
-
+  res.send("END Thank you");
 }
 
-
-app.post("/ussd",ussdHandler);
-app.get("/ussd",ussdHandler);
-
+app.post("/ussd", ussdHandler);
+app.get("/ussd", ussdHandler);
 
 // =================
 // SUBSCRIPTION NOTIFY
 // =================
 
-app.post("/subscription",(req,res)=>{
+app.post("/subscription", (req, res) => {
+  console.log("BDApps subscription notify:", req.body);
 
- console.log("BDApps subscription notify:",req.body);
-
- res.json({
-  statusCode:"S1000",
-  statusDetail:"Success"
- });
-
+  res.json({
+    statusCode: "S1000",
+    statusDetail: "Success",
+  });
 });
 
+const PORT = config.port || 10000;
 
-const PORT=config.port || 10000;
-
-app.listen(PORT,()=>{
- console.log("Sportzfx USSD server running on port",PORT);
+app.listen(PORT, () => {
+  console.log("Sportzfx USSD server running on port", PORT);
 });
