@@ -10,14 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.0.0
         with:
-          host: 45.76.154.13
+          host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /root/Sportzfx-NETWORK
             git pull origin main
             npm install
-            pm2 restart all || pm2 start server.js
+            pm2 restart server || pm2 start server.js --name server
+            pm2 save
