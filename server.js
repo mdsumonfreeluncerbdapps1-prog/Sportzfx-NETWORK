@@ -71,7 +71,7 @@ function getSession(sessionId){
 
 
 // ======================
-// AUTO CLEAN SESSION
+// SESSION CLEANER
 // ======================
 
 setInterval(()=>{
@@ -137,6 +137,7 @@ async function getMatchesSafe(type){
 
   console.log("Match API error:",err.message);
   return [];
+
  }
 
 }
@@ -151,7 +152,7 @@ function showMatches(session){
  const matches = session.matches || [];
 
  if(matches.length === 0){
-  return "CON Live score unavailable now\nPlease try again later\n\n0 Back";
+  return "CON No Matches Available\nPlease try again later\n\n0 Back";
  }
 
  const start = session.page * 5;
@@ -209,9 +210,27 @@ async function ussdHandler(req,res){
 
   console.log("USSD REQUEST:", req.body || req.query);
 
-  const sessionId = req.body.sessionId || req.query.sessionId;
-  const phone = req.body.phoneNumber || req.body.msisdn || req.query.phoneNumber || "";
-  const text = req.body.text || req.query.text || "";
+  // ======================
+  // BDApps Gateway Parsing
+  // ======================
+
+  const sessionId =
+   req.body.sessionId ||
+   req.body.requestId ||
+   req.query.sessionId;
+
+  const phone =
+   req.body.phoneNumber ||
+   req.body.msisdn ||
+   req.body.sourceAddress?.replace("tel:","") ||
+   req.query.phoneNumber ||
+   "";
+
+  const text =
+   req.body.text ||
+   req.body.message ||
+   req.query.text ||
+   "";
 
   const session = getSession(sessionId);
 
@@ -419,7 +438,7 @@ async function ussdHandler(req,res){
 
 
 // ======================
-// USSD ROUTES
+// ROUTES
 // ======================
 
 app.post("/ussd", ussdHandler);
