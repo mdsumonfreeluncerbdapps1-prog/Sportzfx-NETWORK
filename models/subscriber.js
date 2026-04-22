@@ -10,7 +10,17 @@ const subscriberSchema = new mongoose.Schema({
 
  status:{
   type:String,
-  default:"active"
+  default:"pending"
+ },
+
+ otpReference:{
+  type:String,
+  default:null
+ },
+
+ otpVerified:{
+  type:Boolean,
+  default:false
  },
 
  subscribeDate:{
