@@ -1,17 +1,15 @@
 let sessions = {};
 
-const SESSION_TIMEOUT = 5 * 60 * 1000;
+const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 function getSession(sessionId){
 
  if(!sessions[sessionId]){
 
   sessions[sessionId] = {
-   menu:"main",
-   page:0,
-   otpStep:null,
-   otpReference:null,
-   createdAt:Date.now()
+   menu: "main",
+   page: 0,
+   createdAt: Date.now()
   };
 
  }
@@ -19,9 +17,11 @@ function getSession(sessionId){
  sessions[sessionId].createdAt = Date.now();
 
  return sessions[sessionId];
+
 }
 
-setInterval(()=>{
+// cleanup old sessions
+setInterval(() => {
 
  const now = Date.now();
 
@@ -33,7 +33,7 @@ setInterval(()=>{
 
  }
 
-},60000);
+}, 60000);
 
 module.exports = {
  getSession
