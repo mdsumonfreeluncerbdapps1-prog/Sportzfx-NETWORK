@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
 
 
 // ======================
-// HEALTH CHECK (NEW)
+// HEALTH CHECK
 // ======================
 
 app.get("/health", (req,res)=>{
@@ -38,7 +38,7 @@ app.get("/health", (req,res)=>{
 
 
 // ======================
-// SESSION STORE (TTL)
+// SESSION STORE
 // ======================
 
 let sessions = {};
@@ -47,12 +47,15 @@ const MAX_SESSIONS = 5000;
 
 function getSession(sessionId){
 
+ if(!sessionId){
+  sessionId = "temp-"+Date.now();
+ }
+
  if(Object.keys(sessions).length > MAX_SESSIONS){
-  sessions = {}; // memory protection
+  sessions = {};
  }
 
  if(!sessions[sessionId]){
-
   sessions[sessionId] = {
    page:0,
    matches:[],
@@ -60,16 +63,17 @@ function getSession(sessionId){
    selectedMatch:null,
    lastAccess:Date.now()
   };
-
  }
 
  sessions[sessionId].lastAccess = Date.now();
-
  return sessions[sessionId];
 }
 
 
-// auto clean session
+// ======================
+// AUTO CLEAN SESSION
+// ======================
+
 setInterval(()=>{
 
  const now = Date.now();
@@ -81,7 +85,6 @@ setInterval(()=>{
  });
 
 },60000);
-
 
 
 // ======================
@@ -111,8 +114,8 @@ async function getMatchesSafe(type){
    return matchCache[type].data;
   }
 
-  // API timeout protection
   const apiPromise = fetchMatches(type);
+
   const timeout = new Promise((_,reject)=>
    setTimeout(()=>reject(new Error("API timeout")),3000)
   );
@@ -193,34 +196,36 @@ function mainMenu(){
 
 
 // ======================
-// USSD ENDPOINT
+// USSD HANDLER
 // ======================
 
-app.post("/ussd",async(req,res)=>{
+async function ussdHandler(req,res){
 
- const startTime = Date.now(); // performance log
+ const startTime = Date.now();
 
  try{
 
   res.set("Content-Type","text/plain");
 
-  const sessionId=req.body.sessionId;
-  const phone=req.body.phoneNumber||req.body.msisdn||"";
-  const text=req.body.text||"";
+  console.log("USSD REQUEST:", req.body || req.query);
 
-  const session=getSession(sessionId);
+  const sessionId = req.body.sessionId || req.query.sessionId;
+  const phone = req.body.phoneNumber || req.body.msisdn || req.query.phoneNumber || "";
+  const text = req.body.text || req.query.text || "";
 
-  const inputs=text.split("*");
-  const lastInput=inputs[inputs.length-1];
+  const session = getSession(sessionId);
 
-  const user=await Subscriber.findOne({msisdn:phone}).lean();
+  const inputs = text.split("*");
+  const lastInput = inputs[inputs.length-1];
+
+  const user = await Subscriber.findOne({msisdn:phone}).lean();
 
   let response="";
 
 
   if(text===""){
 
-   if(!user||user.status!=="active"){
+   if(!user || user.status!=="active"){
 
     return res.send(
      "CON Welcome to Sportzfx Cricket\n\n"+
@@ -241,7 +246,7 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  if(text==="5"&&(!user||user.status!=="active")){
+  if(text==="5" && (!user || user.status!=="active")){
 
    return res.send(
     "CON Confirm Subscription\n\n"+
@@ -254,6 +259,7 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
+
   if(text==="5*1"){
    return res.send("END Subscription request sent\nConfirmation SMS will follow");
   }
@@ -263,16 +269,12 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  if(!user||user.status!=="active"){
-
-   return res.send(
-    "END Please subscribe first\n\nDial *213*15755#"
-   );
-
+  if(!user || user.status!=="active"){
+   return res.send("END Please subscribe first\n\nDial *213*15755#");
   }
 
 
-  if(lastInput==="0"&&session.menu==="matches"){
+  if(lastInput==="0" && session.menu==="matches"){
 
    session.page=0;
    session.matches=[];
@@ -286,7 +288,7 @@ app.post("/ussd",async(req,res)=>{
 
   if(text==="1"){
 
-   session.matches=await getMatchesSafe("live");
+   session.matches = await getMatchesSafe("live");
 
    session.page=0;
    session.menu="matches";
@@ -296,10 +298,9 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
-
   else if(text==="2"){
 
-   session.matches=await getMatchesSafe("upcoming");
+   session.matches = await getMatchesSafe("upcoming");
 
    session.page=0;
    session.menu="matches";
@@ -309,10 +310,9 @@ app.post("/ussd",async(req,res)=>{
 
   }
 
-
   else if(text==="3"){
 
-   session.matches=await getMatchesSafe("recent");
+   session.matches = await getMatchesSafe("recent");
 
    session.page=0;
    session.menu="matches";
@@ -323,7 +323,7 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  else if(session.menu==="matches"&&Number(lastInput)>=1&&Number(lastInput)<=5){
+  else if(session.menu==="matches" && Number(lastInput)>=1 && Number(lastInput)<=5){
 
    session.selectedMatch=(session.page*5)+(Number(lastInput)-1);
 
@@ -334,15 +334,12 @@ app.post("/ussd",async(req,res)=>{
    }
 
    const title=parseMatchTitle(match).substring(0,30);
-   const team1=match.team1Score||"";
-   const team2=match.team2Score||"";
-   const status=match.status||"Score updating";
 
    return res.send(
     "CON "+title+
-    "\n\n"+team1+
-    "\n"+team2+
-    "\n\n"+status+
+    "\n\n"+(match.team1Score||"")+
+    "\n"+(match.team2Score||"")+
+    "\n\n"+(match.status||"Score updating")+
     "\n\n1 Refresh\n0 Back"
    );
 
@@ -356,7 +353,6 @@ app.post("/ussd",async(req,res)=>{
    }
 
    const matches=await getMatchesSafe("live");
-
    const match=matches[session.selectedMatch];
 
    if(!match){
@@ -376,10 +372,10 @@ app.post("/ussd",async(req,res)=>{
   }
 
 
-  else if(lastInput==="9"&&session.menu==="matches"){
+  else if(lastInput==="9" && session.menu==="matches"){
 
-   if((session.page+1)*5<session.matches.length){
-    session.page+=1;
+   if((session.page+1)*5 < session.matches.length){
+    session.page++;
    }
 
    response=showMatches(session);
@@ -407,8 +403,7 @@ app.post("/ussd",async(req,res)=>{
 
   console.log("USSD response time:",Date.now()-startTime,"ms");
 
- }
- catch(err){
+ }catch(err){
 
   console.log("USSD ERROR:",err.message);
 
@@ -420,7 +415,15 @@ app.post("/ussd",async(req,res)=>{
 
  }
 
-});
+}
+
+
+// ======================
+// USSD ROUTES
+// ======================
+
+app.post("/ussd", ussdHandler);
+app.get("/ussd", ussdHandler);
 
 
 // ======================
@@ -430,5 +433,5 @@ app.post("/ussd",async(req,res)=>{
 const PORT=config.port||10000;
 
 app.listen(PORT,()=>{
- console.log("USSD server running on port",PORT);
+ console.log("Sportzfx USSD server running on port",PORT);
 });
