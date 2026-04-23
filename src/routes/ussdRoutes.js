@@ -15,7 +15,7 @@ const User = mongoose.model("User", {
   createdAt: { type: Date, default: Date.now }
 });
 
-// ================= NUMBER NORMALIZER =================
+// ================= NORMALIZE =================
 const normalizeNumber = (num) => {
   if (!num) return "";
 
@@ -30,7 +30,7 @@ router.get("/", (req, res) => {
   res.send("USSD Server Running ✅");
 });
 
-// ================= USSD HANDLER =================
+// ================= USSD =================
 const handleUSSD = async (req, res) => {
 
   const phoneRaw = req.body.phoneNumber || req.body.msisdn;
@@ -42,7 +42,7 @@ const handleUSSD = async (req, res) => {
   try {
     const user = await User.findOne({ phone });
 
-    // 🔴 SUBSCRIPTION CHECK
+    // 🔴 subscription check
     if (!user || !user.active) {
       if (!text) {
         response = `CON Please subscribe first
@@ -66,17 +66,17 @@ Dial *213*15755#
     }
 
     else if (text === "1") {
-      const r = await axios.get(process.env.LIVE_API, { timeout: 3000 });
+      const r = await axios.get(process.env.LIVE_API);
       response = `END ${r.data}`;
     }
 
     else if (text === "2") {
-      const r = await axios.get(process.env.UPCOMING_API, { timeout: 3000 });
+      const r = await axios.get(process.env.UPCOMING_API);
       response = `END ${r.data}`;
     }
 
     else if (text === "3") {
-      const r = await axios.get(process.env.RECENT_API, { timeout: 3000 });
+      const r = await axios.get(process.env.RECENT_API);
       response = `END ${r.data}`;
     }
 
@@ -97,7 +97,7 @@ Dial *213*15755#
   res.send(response);
 };
 
-// ================= SUBSCRIPTION HANDLER =================
+// ================= SUBSCRIPTION =================
 const handleSubscription = async (req, res) => {
 
   const phoneRaw = req.body.phoneNumber || req.body.msisdn;
@@ -111,14 +111,13 @@ const handleSubscription = async (req, res) => {
       await User.findOneAndUpdate(
         { phone },
         { active: true },
-        { upsert: true, new: true }
+        { upsert: true }
       );
     }
   } catch (err) {
     console.error("SUB ERROR:", err.message);
   }
 
-  res.set("Content-Type", "text/plain");
   res.send("OK");
 };
 
