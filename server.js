@@ -1,33 +1,29 @@
-require("dotenv").config();
-
-const express = require("express");
+require('dotenv').config();
+const express = require('express');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// ================= MIDDLEWARE =================
+// Body parser
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// ================= ROUTES =================
-app.use("/", require("./src/routes/ussdRoutes"));
+// Import routes (IMPORTANT FIX)
+const ussdRoutes = require('./src/routes/ussdRoutes');
 
-// ================= ROOT =================
-app.get("/", (req, res) => {
-  res.send("SportzFX Running ✅");
+// Routes
+app.use('/ussd', ussdRoutes);
+app.use('/ussd/receive', ussdRoutes);
+
+app.use('/subscription', ussdRoutes);
+app.use('/subscription/receive', ussdRoutes);
+
+// Root
+app.get('/', (req, res) => {
+  res.send('🚀 SportzFX Server Running');
 });
 
-// ================= HEALTH =================
-app.get("/health", (req, res) => {
-  res.send("OK");
-});
-
-// ================= FALLBACK =================
-app.use((req, res) => {
-  res.status(404).send("Route not found");
-});
-
-// ================= START =================
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
 });
