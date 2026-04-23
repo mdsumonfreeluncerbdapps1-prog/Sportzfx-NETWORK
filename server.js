@@ -5,25 +5,26 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // middleware
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// root test
+// root check
 app.get('/', (req, res) => {
     res.send("SportzFX USSD Server Running ✅");
 });
 
-// ✅ USSD ROUTE (BDApps)
+// ==============================
+// 🔥 BDApps USSD ROUTE
+// ==============================
 app.post('/ussd', async (req, res) => {
     const { sessionId, serviceCode, phoneNumber, text } = req.body;
 
     let response = "";
 
     try {
-        // =========================
+
         // MAIN MENU
-        // =========================
-        if (text === "") {
+        if (!text || text === "") {
             response = `CON Welcome to SportzFX ⚽
 1. Live Score
 2. Match List
@@ -50,21 +51,31 @@ app.post('/ussd', async (req, res) => {
         }
 
         // =========================
-        // MATCH DETAILS (1 → select match)
+        // MATCH DETAILS
         // =========================
         else if (text.startsWith("1*")) {
-            const index = parseInt(text.split("*")[1]) - 1;
 
-            const api = await axios.get("https://cricbuzz.autoaiassistant.com/api.php");
-            let matches = api.data;
+            // BACK
+            if (text === "1*0") {
+                response = `CON Welcome to SportzFX ⚽
+1. Live Score
+2. Match List
+3. Exit`;
+            } 
+            else {
+                const index = parseInt(text.split("*")[1]) - 1;
 
-            if (matches[index]) {
-                let m = matches[index];
+                const api = await axios.get("https://cricbuzz.autoaiassistant.com/api.php");
+                let matches = api.data;
 
-                response = `END ${m.team1} vs ${m.team2}
+                if (matches[index]) {
+                    let m = matches[index];
+
+                    response = `END ${m.team1} vs ${m.team2}
 Score: ${m.score || "Updating..."}`;
-            } else {
-                response = "END Invalid Match ❌";
+                } else {
+                    response = "END Invalid Match ❌";
+                }
             }
         }
 
@@ -86,16 +97,6 @@ Score: ${m.score || "Updating..."}`;
         }
 
         // =========================
-        // BACK
-        // =========================
-        else if (text === "1*0") {
-            response = `CON Welcome to SportzFX ⚽
-1. Live Score
-2. Match List
-3. Exit`;
-        }
-
-        // =========================
         // EXIT
         // =========================
         else if (text === "3") {
@@ -110,16 +111,21 @@ Score: ${m.score || "Updating..."}`;
         }
 
     } catch (error) {
-        console.log(error.message);
+        console.error("ERROR:", error.message);
         response = "END Server Error ❌ Try again later";
     }
 
-    // BDApps requirement
+    // 🔥 BDApps MUST REQUIRE
     res.set('Content-Type', 'text/plain');
     res.send(response);
 });
 
+// fallback (important for debug)
+app.use((req, res) => {
+    res.status(404).send("Route not found");
+});
+
 // start server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
 });
