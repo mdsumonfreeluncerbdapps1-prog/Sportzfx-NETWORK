@@ -4,148 +4,97 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// middleware
+// ================= MIDDLEWARE =================
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// ==============================
-// ROOT CHECK
-// ==============================
+// ================= CONFIG =================
+const CONFIG = {
+  APP_NAME: "SportzFX",
+  LIVE_API: "https://cricbuzz.autoaiassistant.com/sms.php?message=live",
+  UPCOMING_API: "https://cricbuzz.autoaiassistant.com/sms.php?message=upcoming",
+  RECENT_API: "https://cricbuzz.autoaiassistant.com/sms.php?message=recent"
+};
+
+// ================= ROOT =================
 app.get('/', (req, res) => {
-    res.send("SportzFX USSD Server Running ✅");
+  res.send(`${CONFIG.APP_NAME} Running ✅`);
 });
 
-// ==============================
-// 🔥 USSD ROUTE (BDApps)
-// ==============================
+// ================= USSD =================
 app.post('/ussd', async (req, res) => {
-    const { sessionId, serviceCode, phoneNumber, text } = req.body;
+  const { phoneNumber, text } = req.body;
 
-    let response = "";
+  let response = "";
 
-    try {
+  try {
 
-        // MAIN MENU
-        if (!text || text === "") {
-            response = `CON Welcome to SportzFX ⚽
+    // ===== MAIN MENU =====
+    if (!text || text === "") {
+      response = `CON Welcome to ${CONFIG.APP_NAME} ⚽
 1. Live Score
-2. Match List
-3. Exit`;
-        }
-
-        // =========================
-        // LIVE SCORE MENU
-        // =========================
-        else if (text === "1") {
-            const api = await axios.get("https://cricbuzz.autoaiassistant.com/api.php");
-
-            let matches = api.data.slice(0, 5);
-
-            let msg = "CON Live Matches:\n";
-
-            matches.forEach((m, i) => {
-                msg += `${i + 1}. ${m.team1} vs ${m.team2}\n`;
-            });
-
-            msg += "\n0. Back";
-
-            response = msg;
-        }
-
-        // =========================
-        // MATCH DETAILS
-        // =========================
-        else if (text.startsWith("1*")) {
-
-            // BACK
-            if (text === "1*0") {
-                response = `CON Welcome to SportzFX ⚽
-1. Live Score
-2. Match List
-3. Exit`;
-            } 
-            else {
-                const index = parseInt(text.split("*")[1]) - 1;
-
-                const api = await axios.get("https://cricbuzz.autoaiassistant.com/api.php");
-                let matches = api.data;
-
-                if (matches[index]) {
-                    let m = matches[index];
-
-                    response = `END ${m.team1} vs ${m.team2}
-Score: ${m.score || "Updating..."}`;
-                } else {
-                    response = "END Invalid Match ❌";
-                }
-            }
-        }
-
-        // =========================
-        // MATCH LIST
-        // =========================
-        else if (text === "2") {
-            const api = await axios.get("https://cricbuzz.autoaiassistant.com/api.php");
-
-            let matches = api.data.slice(0, 5);
-
-            let msg = "END Match List:\n";
-
-            matches.forEach((m) => {
-                msg += `${m.team1} vs ${m.team2}\n`;
-            });
-
-            response = msg;
-        }
-
-        // =========================
-        // EXIT
-        // =========================
-        else if (text === "3") {
-            response = "END Thank you for using SportzFX 🙏";
-        }
-
-        // =========================
-        // INVALID
-        // =========================
-        else {
-            response = "END Invalid Option ❌";
-        }
-
-    } catch (error) {
-        console.error("ERROR:", error.message);
-        response = "END Server Error ❌ Try again later";
+2. Upcoming Match
+3. Recent Match
+4. Exit`;
     }
 
-    // BDApps requirement
-    res.set('Content-Type', 'text/plain');
-    res.send(response);
+    // ===== LIVE SCORE =====
+    else if (text === "1") {
+      const r = await axios.get(CONFIG.LIVE_API, { timeout: 2000 });
+      response = `END ${r.data}`;
+    }
+
+    // ===== UPCOMING =====
+    else if (text === "2") {
+      const r = await axios.get(CONFIG.UPCOMING_API, { timeout: 2000 });
+      response = `END ${r.data}`;
+    }
+
+    // ===== RECENT =====
+    else if (text === "3") {
+      const r = await axios.get(CONFIG.RECENT_API, { timeout: 2000 });
+      response = `END ${r.data}`;
+    }
+
+    // ===== EXIT =====
+    else if (text === "4") {
+      response = `END Thank you for using ${CONFIG.APP_NAME}`;
+    }
+
+    // ===== INVALID =====
+    else {
+      response = "END Invalid Option ❌";
+    }
+
+  } catch (err) {
+    console.error("USSD ERROR:", err.message);
+    response = "END Service temporarily unavailable";
+  }
+
+  res.set('Content-Type', 'text/plain');
+  res.send(response);
 });
 
-// ==============================
-// 🔥 SUBSCRIPTION ROUTE (BDApps)
-// ==============================
+// ================= SUBSCRIPTION =================
 app.post('/subscription', (req, res) => {
-    console.log("Subscription Hit:", req.body);
+  console.log("Subscription Hit:", req.body);
 
-    // BDApps expects simple OK
-    res.set('Content-Type', 'text/plain');
-    res.send("OK");
+  // production এ এখানে DB logic add করবে
+  res.set('Content-Type', 'text/plain');
+  res.send("OK");
 });
 
-// ==============================
-// DEBUG ROUTE (optional)
-// ==============================
-app.get('/test', (req, res) => {
-    res.send("Test route working ✅");
+// ================= HEALTH =================
+app.get('/health', (req, res) => {
+  res.send("OK");
 });
 
-// fallback
+// ================= FALLBACK =================
 app.use((req, res) => {
-    res.status(404).send("Route not found");
+  res.status(404).send("Route not found");
 });
 
-// start server
+// ================= START =================
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
