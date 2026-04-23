@@ -1,25 +1,22 @@
-require('dotenv').config();
-const express = require('express');
+require("dotenv").config();
+const express = require("express");
 
 const app = express();
 
-// Body parser
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Routes
-const ussdRoutes = require('./src/routes/ussdRoutes');
+const ussdRoutes = require("./src/routes/ussdRoutes");
 
-// ✅ ALL ROUTES FIXED
-app.use('/', ussdRoutes);
+app.use("/ussd", ussdRoutes);
+app.use("/subscription", ussdRoutes);
 
-// Root check
-app.get('/', (req, res) => {
-  res.send('🚀 SportzFX Server Running');
+app.get("/", (req, res) => {
+  res.send("🚀 BDApps USSD Server Running");
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log("Server running on port " + PORT);
 });
