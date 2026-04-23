@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 
-// ================= MONGO CONNECT (FIXED) =================
+// ================= MONGO CONNECT =================
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected ✅"))
   .catch(err => console.log("Mongo Error:", err.message));
@@ -14,7 +14,7 @@ const User = mongoose.model("User", {
   createdAt: { type: Date, default: Date.now }
 });
 
-// ================= IMPORT CONTROLLER =================
+// ================= CONTROLLER =================
 const controller = require("../controllers/ussdController");
 
 // ================= MIDDLEWARE =================
@@ -23,13 +23,21 @@ router.use((req, res, next) => {
   next();
 });
 
-// ================= ROUTES =================
+// ================= USSD ROUTES =================
 
-// BDApps USSD
+// 👉 /ussd
 router.post("/", controller.handleUSSD);
 
-// BDApps Subscription
-router.post("/subscription", controller.handleSubscription);
+// 👉 /ussd/receive
+router.post("/receive", controller.handleUSSD);
+
+// ================= SUBSCRIPTION ROUTES =================
+
+// 👉 /subscription  (because server.js uses /subscription base)
+router.post("/", controller.handleSubscription);
+
+// 👉 /subscription/receive
+router.post("/receive", controller.handleSubscription);
 
 // ================= EXPORT =================
 module.exports = router;
