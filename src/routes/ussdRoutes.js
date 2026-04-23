@@ -4,12 +4,9 @@ const axios = require("axios");
 const mongoose = require("mongoose");
 
 // ================= DB CONNECT =================
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log("MongoDB Connected ✅"))
-.catch(err => console.log("MongoDB Error:", err.message));
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected ✅"))
+  .catch(err => console.log("MongoDB Error:", err.message));
 
 // ================= MODEL =================
 const User = mongoose.model("User", {
@@ -18,6 +15,21 @@ const User = mongoose.model("User", {
   createdAt: { type: Date, default: Date.now }
 });
 
+// ================= NUMBER NORMALIZER (🔥 MUST) =================
+const normalizeNumber = (num) => {
+  if (!num) return "";
+
+  if (num.startsWith("880")) {
+    return "0" + num.slice(3);
+  }
+
+  if (num.startsWith("+880")) {
+    return "0" + num.slice(4);
+  }
+
+  return num;
+};
+
 // ================= HEALTH =================
 router.get("/", (req, res) => {
   res.send("USSD Server Running ✅");
@@ -25,14 +37,15 @@ router.get("/", (req, res) => {
 
 // ================= USSD HANDLER =================
 const handleUSSD = async (req, res) => {
-  const { phoneNumber, text } = req.body;
+  const phone = normalizeNumber(req.body.phoneNumber);
+  const text = req.body.text || "";
 
   let response = "";
 
   try {
-    const user = await User.findOne({ phone: phoneNumber });
+    const user = await User.findOne({ phone });
 
-    // 🔥 SUBSCRIPTION CHECK
+    // 🔴 SUBSCRIPTION CHECK
     if (!user || !user.active) {
       if (!text) {
         response = `CON Please subscribe first
@@ -47,8 +60,8 @@ Dial *213*15755#
     }
 
     // ===== MAIN MENU =====
-    if (!text || text === "") {
-      response = `CON Welcome to SportzFX BD
+    if (text === "") {
+      response = `CON Welcome to SportzFX ⚽
 1. Live Score
 2. Upcoming Match
 3. Recent Match
@@ -57,19 +70,19 @@ Dial *213*15755#
 
     // ===== LIVE =====
     else if (text === "1") {
-      const r = await axios.get(process.env.LIVE_API, { timeout: 2000 });
+      const r = await axios.get(process.env.LIVE_API, { timeout: 3000 });
       response = `END ${r.data}`;
     }
 
     // ===== UPCOMING =====
     else if (text === "2") {
-      const r = await axios.get(process.env.UPCOMING_API, { timeout: 2000 });
+      const r = await axios.get(process.env.UPCOMING_API, { timeout: 3000 });
       response = `END ${r.data}`;
     }
 
     // ===== RECENT =====
     else if (text === "3") {
-      const r = await axios.get(process.env.RECENT_API, { timeout: 2000 });
+      const r = await axios.get(process.env.RECENT_API, { timeout: 3000 });
       response = `END ${r.data}`;
     }
 
@@ -93,14 +106,15 @@ Dial *213*15755#
 
 // ================= SUBSCRIPTION HANDLER =================
 const handleSubscription = async (req, res) => {
-  const { phoneNumber, status } = req.body;
+  const phone = normalizeNumber(req.body.phoneNumber);
+  const status = req.body.status;
 
-  console.log("Subscription Hit:", req.body);
+  console.log("Subscription Hit:", phone, status);
 
   try {
     if (status === "SUCCESS") {
       await User.findOneAndUpdate(
-        { phone: phoneNumber },
+        { phone },
         { active: true },
         { upsert: true, new: true }
       );
