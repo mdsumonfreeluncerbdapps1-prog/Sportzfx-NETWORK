@@ -1,25 +1,39 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const mongoose = require("mongoose");
 
-// ================= TEMP USER STORE =================
-const users = {};
+// ================= DB CONNECT =================
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log("MongoDB Connected ✅"))
+.catch(err => console.log("MongoDB Error:", err.message));
+
+// ================= MODEL =================
+const User = mongoose.model("User", {
+  phone: { type: String, unique: true },
+  active: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
 
 // ================= HEALTH =================
 router.get("/", (req, res) => {
   res.send("USSD Server Running ✅");
 });
 
-// ================= COMMON USSD HANDLER =================
+// ================= USSD HANDLER =================
 const handleUSSD = async (req, res) => {
   const { phoneNumber, text } = req.body;
 
   let response = "";
 
   try {
+    const user = await User.findOne({ phone: phoneNumber });
 
     // 🔥 SUBSCRIPTION CHECK
-    if (!users[phoneNumber]) {
+    if (!user || !user.active) {
       if (!text) {
         response = `CON Please subscribe first
 Dial *213*15755#
@@ -32,7 +46,7 @@ Dial *213*15755#
       return res.send(response);
     }
 
-    // ===== MENU =====
+    // ===== MAIN MENU =====
     if (!text || text === "") {
       response = `CON Welcome to SportzFX BD
 1. Live Score
@@ -41,21 +55,25 @@ Dial *213*15755#
 4. Exit`;
     }
 
+    // ===== LIVE =====
     else if (text === "1") {
-      const r = await axios.get("https://cricbuzz.autoaiassistant.com/sms.php?message=live", { timeout: 2000 });
+      const r = await axios.get(process.env.LIVE_API, { timeout: 2000 });
       response = `END ${r.data}`;
     }
 
+    // ===== UPCOMING =====
     else if (text === "2") {
-      const r = await axios.get("https://cricbuzz.autoaiassistant.com/sms.php?message=upcoming", { timeout: 2000 });
+      const r = await axios.get(process.env.UPCOMING_API, { timeout: 2000 });
       response = `END ${r.data}`;
     }
 
+    // ===== RECENT =====
     else if (text === "3") {
-      const r = await axios.get("https://cricbuzz.autoaiassistant.com/sms.php?message=recent", { timeout: 2000 });
+      const r = await axios.get(process.env.RECENT_API, { timeout: 2000 });
       response = `END ${r.data}`;
     }
 
+    // ===== EXIT =====
     else if (text === "4") {
       response = "END Thank you for using SportzFX";
     }
@@ -73,14 +91,22 @@ Dial *213*15755#
   res.send(response);
 };
 
-// ================= COMMON SUBSCRIPTION HANDLER =================
-const handleSubscription = (req, res) => {
+// ================= SUBSCRIPTION HANDLER =================
+const handleSubscription = async (req, res) => {
   const { phoneNumber, status } = req.body;
 
   console.log("Subscription Hit:", req.body);
 
-  if (status === "SUCCESS") {
-    users[phoneNumber] = true;
+  try {
+    if (status === "SUCCESS") {
+      await User.findOneAndUpdate(
+        { phone: phoneNumber },
+        { active: true },
+        { upsert: true, new: true }
+      );
+    }
+  } catch (err) {
+    console.error("SUBSCRIPTION ERROR:", err.message);
   }
 
   res.set("Content-Type", "text/plain");
@@ -89,11 +115,11 @@ const handleSubscription = (req, res) => {
 
 // ================= ROUTES =================
 
-// USSD (both)
+// USSD
 router.post("/ussd", handleUSSD);
 router.post("/ussd/receive", handleUSSD);
 
-// Subscription (both)
+// Subscription
 router.post("/subscription", handleSubscription);
 router.post("/subscription/receive", handleSubscription);
 
