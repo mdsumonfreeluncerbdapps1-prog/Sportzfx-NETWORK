@@ -7,17 +7,13 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Import routes (IMPORTANT FIX)
+// Routes
 const ussdRoutes = require('./src/routes/ussdRoutes');
 
-// Routes
-app.use('/ussd', ussdRoutes);
-app.use('/ussd/receive', ussdRoutes);
+// ✅ ALL ROUTES FIXED
+app.use('/', ussdRoutes);
 
-app.use('/subscription', ussdRoutes);
-app.use('/subscription/receive', ussdRoutes);
-
-// Root
+// Root check
 app.get('/', (req, res) => {
   res.send('🚀 SportzFX Server Running');
 });
