@@ -1,5 +1,8 @@
 require("dotenv").config(); // ✅ ENV load
 
+// 🔥 DEBUG (MOST IMPORTANT)
+console.log("ENV TEST MONGO_URI =", process.env.MONGO_URI);
+
 const express = require("express");
 const app = express();
 
@@ -10,7 +13,7 @@ app.use(express.urlencoded({ extended: true }));
 // ================= ROUTES =================
 const ussdRoutes = require("./src/routes/ussdRoutes");
 
-// 🔥 BDApps ROUTING (CLEAN & CORRECT)
+// 🔥 BDApps ROUTING
 app.use("/ussd", ussdRoutes);
 app.use("/subscription", ussdRoutes);
 
