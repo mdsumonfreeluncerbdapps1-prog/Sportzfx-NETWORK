@@ -15,17 +15,12 @@ const User = mongoose.model("User", {
   createdAt: { type: Date, default: Date.now }
 });
 
-// ================= NUMBER NORMALIZER (🔥 MUST) =================
+// ================= NUMBER NORMALIZER =================
 const normalizeNumber = (num) => {
   if (!num) return "";
 
-  if (num.startsWith("880")) {
-    return "0" + num.slice(3);
-  }
-
-  if (num.startsWith("+880")) {
-    return "0" + num.slice(4);
-  }
+  if (num.startsWith("+880")) return "0" + num.slice(4);
+  if (num.startsWith("880")) return "0" + num.slice(3);
 
   return num;
 };
@@ -37,7 +32,9 @@ router.get("/", (req, res) => {
 
 // ================= USSD HANDLER =================
 const handleUSSD = async (req, res) => {
-  const phone = normalizeNumber(req.body.phoneNumber);
+
+  const phoneRaw = req.body.phoneNumber || req.body.msisdn;
+  const phone = normalizeNumber(phoneRaw);
   const text = req.body.text || "";
 
   let response = "";
@@ -59,7 +56,7 @@ Dial *213*15755#
       return res.send(response);
     }
 
-    // ===== MAIN MENU =====
+    // ===== MENU =====
     if (text === "") {
       response = `CON Welcome to SportzFX ⚽
 1. Live Score
@@ -68,25 +65,21 @@ Dial *213*15755#
 4. Exit`;
     }
 
-    // ===== LIVE =====
     else if (text === "1") {
       const r = await axios.get(process.env.LIVE_API, { timeout: 3000 });
       response = `END ${r.data}`;
     }
 
-    // ===== UPCOMING =====
     else if (text === "2") {
       const r = await axios.get(process.env.UPCOMING_API, { timeout: 3000 });
       response = `END ${r.data}`;
     }
 
-    // ===== RECENT =====
     else if (text === "3") {
       const r = await axios.get(process.env.RECENT_API, { timeout: 3000 });
       response = `END ${r.data}`;
     }
 
-    // ===== EXIT =====
     else if (text === "4") {
       response = "END Thank you for using SportzFX";
     }
@@ -106,7 +99,9 @@ Dial *213*15755#
 
 // ================= SUBSCRIPTION HANDLER =================
 const handleSubscription = async (req, res) => {
-  const phone = normalizeNumber(req.body.phoneNumber);
+
+  const phoneRaw = req.body.phoneNumber || req.body.msisdn;
+  const phone = normalizeNumber(phoneRaw);
   const status = req.body.status;
 
   console.log("Subscription Hit:", phone, status);
@@ -120,7 +115,7 @@ const handleSubscription = async (req, res) => {
       );
     }
   } catch (err) {
-    console.error("SUBSCRIPTION ERROR:", err.message);
+    console.error("SUB ERROR:", err.message);
   }
 
   res.set("Content-Type", "text/plain");
@@ -128,12 +123,9 @@ const handleSubscription = async (req, res) => {
 };
 
 // ================= ROUTES =================
-
-// USSD
 router.post("/ussd", handleUSSD);
 router.post("/ussd/receive", handleUSSD);
 
-// Subscription
 router.post("/subscription", handleSubscription);
 router.post("/subscription/receive", handleSubscription);
 
