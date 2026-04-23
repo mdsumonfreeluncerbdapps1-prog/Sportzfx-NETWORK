@@ -8,13 +8,15 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// root check
+// ==============================
+// ROOT CHECK
+// ==============================
 app.get('/', (req, res) => {
     res.send("SportzFX USSD Server Running ✅");
 });
 
 // ==============================
-// 🔥 BDApps USSD ROUTE
+// 🔥 USSD ROUTE (BDApps)
 // ==============================
 app.post('/ussd', async (req, res) => {
     const { sessionId, serviceCode, phoneNumber, text } = req.body;
@@ -115,12 +117,30 @@ Score: ${m.score || "Updating..."}`;
         response = "END Server Error ❌ Try again later";
     }
 
-    // 🔥 BDApps MUST REQUIRE
+    // BDApps requirement
     res.set('Content-Type', 'text/plain');
     res.send(response);
 });
 
-// fallback (important for debug)
+// ==============================
+// 🔥 SUBSCRIPTION ROUTE (BDApps)
+// ==============================
+app.post('/subscription', (req, res) => {
+    console.log("Subscription Hit:", req.body);
+
+    // BDApps expects simple OK
+    res.set('Content-Type', 'text/plain');
+    res.send("OK");
+});
+
+// ==============================
+// DEBUG ROUTE (optional)
+// ==============================
+app.get('/test', (req, res) => {
+    res.send("Test route working ✅");
+});
+
+// fallback
 app.use((req, res) => {
     res.status(404).send("Route not found");
 });
