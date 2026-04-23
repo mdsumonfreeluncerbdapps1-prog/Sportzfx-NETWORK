@@ -1,7 +1,6 @@
-require("dotenv").config(); // 🔥 MUST (env load)
+require("dotenv").config(); // ✅ ENV load
 
 const express = require("express");
-
 const app = express();
 
 // ================= MIDDLEWARE =================
@@ -11,7 +10,7 @@ app.use(express.urlencoded({ extended: true }));
 // ================= ROUTES =================
 const ussdRoutes = require("./src/routes/ussdRoutes");
 
-// BDApps endpoints
+// 🔥 BDApps ROUTING (CLEAN & CORRECT)
 app.use("/ussd", ussdRoutes);
 app.use("/subscription", ussdRoutes);
 
@@ -20,7 +19,7 @@ app.get("/", (req, res) => {
   res.send("🚀 BDApps USSD Server Running");
 });
 
-// ================= HEALTH CHECK =================
+// ================= HEALTH =================
 app.get("/health", (req, res) => {
   res.send("OK");
 });
@@ -35,5 +34,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} ✅`);
 });
