@@ -1,7 +1,4 @@
-require("dotenv").config(); // ✅ ENV load
-
-// 🔥 DEBUG (MOST IMPORTANT)
-console.log("ENV TEST MONGO_URI =", process.env.MONGO_URI);
+require("dotenv").config();
 
 const express = require("express");
 const app = express();
@@ -13,7 +10,7 @@ app.use(express.urlencoded({ extended: true }));
 // ================= ROUTES =================
 const ussdRoutes = require("./src/routes/ussdRoutes");
 
-// 🔥 BDApps ROUTING
+// 🔥 MAIN ROUTES
 app.use("/ussd", ussdRoutes);
 app.use("/subscription", ussdRoutes);
 
@@ -33,7 +30,7 @@ app.use((err, req, res, next) => {
   res.status(500).send("Internal Server Error");
 });
 
-// ================= START SERVER =================
+// ================= START =================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
