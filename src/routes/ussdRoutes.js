@@ -14,30 +14,86 @@ const User = mongoose.model("User", {
   createdAt: { type: Date, default: Date.now }
 });
 
-// ================= CONTROLLER =================
-const controller = require("../controllers/ussdController");
+// ================= USSD MAIN =================
+// 🔥 BDApps will hit: POST /ussd
+router.post("/", async (req, res) => {
+  console.log("🔥 USSD HIT:", req.body);
 
-// ================= MIDDLEWARE =================
-router.use((req, res, next) => {
-  req.User = User;
-  next();
+  const sessionId = req.body.sessionId || "";
+  const text = req.body.message || ""; // user input
+  const phone = req.body.sourceAddress || "";
+
+  let response = "";
+
+  try {
+    // ================= MENU LOGIC =================
+
+    if (text === "") {
+      response = "1. Subscribe\n2. Check Status\n3. Exit";
+    }
+
+    else if (text === "1") {
+      // subscribe user
+      let user = await User.findOne({ phone });
+
+      if (!user) {
+        await User.create({ phone, active: true });
+      } else {
+        user.active = true;
+        await user.save();
+      }
+
+      return res.json({
+        message: "✅ Subscribed Successfully",
+        ussdOperation: "mt-fin"
+      });
+    }
+
+    else if (text === "2") {
+      const user = await User.findOne({ phone });
+
+      if (user && user.active) {
+        response = "✅ You are Subscribed";
+      } else {
+        response = "❌ Not Subscribed";
+      }
+    }
+
+    else if (text === "3") {
+      return res.json({
+        message: "Thank You!",
+        ussdOperation: "mt-fin"
+      });
+    }
+
+    else {
+      response = "Invalid Option";
+    }
+
+    // ================= RESPONSE =================
+    res.json({
+      message: response,
+      ussdOperation: "mt-cont"
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.json({
+      message: "Server Error",
+      ussdOperation: "mt-fin"
+    });
+  }
 });
 
-// ================= USSD ROUTES =================
+// ================= SUBSCRIPTION CALLBACK =================
+// 🔥 BDApps will hit: POST /subscription
+router.post("/subscription", (req, res) => {
+  console.log("🔥 SUBSCRIPTION HIT:", req.body);
 
-// 👉 /ussd
-router.post("/", controller.handleUSSD);
+  res.json({
+    statusCode: "S1000",
+    statusDetail: "Success"
+  });
+});
 
-// 👉 /ussd/receive
-router.post("/receive", controller.handleUSSD);
-
-// ================= SUBSCRIPTION ROUTES =================
-
-// 👉 /subscription  (because server.js uses /subscription base)
-router.post("/", controller.handleSubscription);
-
-// 👉 /subscription/receive
-router.post("/receive", controller.handleSubscription);
-
-// ================= EXPORT =================
 module.exports = router;
